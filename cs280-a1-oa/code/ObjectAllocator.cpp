@@ -13,10 +13,10 @@
 /******************************************************************************/
 #include "ObjectAllocator.h"
 
-///TODO: Everything after Free(void *Object);
+///TODO: Everything after Free(void *Object); https://github.com/ShumWengSang/CS280/blob/master/Assignment1/src/ObjectAllocator.cpp
 
-using BYTE = unsigned char;             //!< Type of byte
-using size_t PTR_SIZE = sizeof(void *); //!< Size of a pointer
+using BYTE = unsigned char;                 //!< Type of byte
+constexpr size_t PTR_SIZE = sizeof(void *); //!< Size of a pointer
 
 inline size_t Align(size_t n, size_t alignment)
 {
@@ -31,15 +31,16 @@ ObjectAllocator::ObjectAllocator(size_t ObjectSize, const OAConfig &config)
     : PageList_{nullptr}, FreeList_{nullptr}, Config_{config}, Stats_{}
 {
   HeaderSize_ = Align(PTR_SIZE + config.HBlockInfo_.size_ + config.PadBytes_, config.Alignment_);
-  size_t midBlockSize = static_cast<size_t>(config.PadBytes_ * 2) + ObjectSize + config.HBlockInfo_.size_, config.Alignment_;
-  MidBlockSize_ = Align(midBlockSize);
+  size_t midBlockSize = static_cast<size_t>(config.PadBytes_ * 2) + ObjectSize + config.HBlockInfo_.size_;
+  MidBlockSize_ = Align(midBlockSize, config.Alignment_);
   Stats_.ObjectSize_ = ObjectSize;
+  Config_.InterAlignSize_ = MidBlockSize_ - midBlockSize;
+
   Stats_.PageSize_ = HeaderSize_ + (config.ObjectsPerPage_ - 1) * MidBlockSize_ + ObjectSize + config.PadBytes_;
   TotalMidBlockSize_ = MidBlockSize_ * (config.ObjectsPerPage_ - 1) + ObjectSize + config.PadBytes_;
 
   unsigned int leftHeaderSize = static_cast<unsigned int>(PTR_SIZE + config.HBlockInfo_.size_ + static_cast<size_t>(config.PadBytes_));
-  config.LeftAlignSize_ = static_cast<unsigned int>(Align(leftHeaderSize, config.Alignment_) - leftHeaderSize);
-  config.InterAlignSize_ = MidBlockSize_ - midBlockSize;
+  Config_.LeftAlignSize_ = static_cast<unsigned int>(Align(leftHeaderSize, config.Alignment_) - leftHeaderSize);
 
   AllocateNewPage_s(PageList_);
 }
@@ -56,7 +57,7 @@ ObjectAllocator::~ObjectAllocator() noexcept
       BYTE *objectAddress = reinterpret_cast<BYTE *>(page) + HeaderSize_;
       for (size_t i = 0; i < Config_.ObjectsPerPage_; ++i)
       {
-        FreeHeader(objectAddress, Config_.HBlockInfo_.type_);
+        FreeHeader(reinterpret_cast<GenericObject *>(objectAddress), Config_.HBlockInfo_.type_);
       }
     }
     delete[] reinterpret_cast<BYTE *>(page);
@@ -70,7 +71,7 @@ void *ObjectAllocator::Allocate(const char *label = 0)
   {
     try
     {
-      BYTE *newObject = new BYTE[Stats.ObjectSize_];
+      BYTE *newObject = new BYTE[Stats_.ObjectSize_];
       UpdateStats();
       return newObject;
     }
@@ -138,7 +139,7 @@ void ObjectAllocator::Free(void *Object)
   Stats_.ObjectsInUse_;
 }
 
-void ObjectAllocator::AllocateNewPage(size_t pageSize)
+GenericObject *ObjectAllocator::AllocateNewPage(size_t pageSize)
 {
   try
   {
@@ -222,11 +223,11 @@ void ObjectAllocator::FreeHeader(GenericObject *object, OAConfig::HBLOCK_TYPE he
   {
     if (Config_.DebugOn_)
     {
-      if (0 == *(headerAddress + sizeof(unsigned) + this->configuration.HBlockInfo_.additional_ + sizeof(unsigned short)))
+      if (0 == *(headerAddress + sizeof(unsigned) + this->Config_.HBlockInfo_.additional_ + sizeof(unsigned short)))
         throw OAException(OAException::E_MULTIPLE_FREE, "FreeHeader: Object has already been freed.");
     }
     // Reset the basic header part of the extended to 0
-    memset(headerAddress + this->configuration.HBlockInfo_.additional_ + sizeof(unsigned short), 0, OAConfig::BASIC_HEADER_SIZE);
+    memset(headerAddress + this->Config_.HBlockInfo_.additional_ + sizeof(unsigned short), 0, OAConfig::BASIC_HEADER_SIZE);
   }
   break;
   case OAConfig::hbExternal:
@@ -236,6 +237,7 @@ void ObjectAllocator::FreeHeader(GenericObject *object, OAConfig::HBLOCK_TYPE he
     MemBlockInfo **info = reinterpret_cast<MemBlockInfo **>(headerAddress);
     if (nullptr == *info && Config_.DebugOn_)
       throw OAException(OAException::E_MULTIPLE_FREE, "FreeHeader: Object has already been freed.");
+
     delete *info;
     *info = nullptr;
   }
@@ -244,7 +246,7 @@ void ObjectAllocator::FreeHeader(GenericObject *object, OAConfig::HBLOCK_TYPE he
     break;
   }
 }
-void InitHeader(GenericObject *object, OAConfig::HBLOCK_TYPE headerType, const char *label)
+void ObjectAllocator::InitHeader(GenericObject *object, OAConfig::HBLOCK_TYPE headerType, const char *label)
 {
   switch (headerType)
   {
@@ -279,19 +281,19 @@ void InitHeader(GenericObject *object, OAConfig::HBLOCK_TYPE headerType, const c
     try
     {
       *memPtr = new MemBlockInfo{};
-      (*memptr)->in_use = true;
-      (*memptr)->alloc_num = Stats_.Allocations_;
+      (*memPtr)->in_use = true;
+      (*memPtr)->alloc_num = Stats_.Allocations_;
       if (label)
       {
         try
         {
-          (*memptr)->label = new char[strlen(label) + 1];
+          (*memPtr)->label = new char[strlen(label) + 1];
         }
         catch (std::bad_alloc &)
         {
           throw OAException(OAException::E_NO_MEMORY, "InitHeader: No system memory available.");
         }
-        strcpy((*memptr)->label, label);
+        strcpy((*memPtr)->label, label);
       }
     }
     catch (std::bad_alloc &)
@@ -318,12 +320,12 @@ void ObjectAllocator::PushToFreeList(GenericObject *object)
 {
   GenericObject *temp = FreeList_;
   FreeList_ = object;
-  Object->Next = temp;
+  object->Next = temp;
 
   ++Stats_.FreeObjects_;
 }
 
-void CheckBoundaries(unsigned char *address) const
+void ObjectAllocator::CheckBoundaries(unsigned char *address) const
 {
   // Find the page the object rests in.
   GenericObject *pageList = PageList_;
@@ -356,14 +358,14 @@ bool ObjectAllocator::IsInPage(GenericObject *pageAddress, unsigned char *addres
           address < reinterpret_cast<BYTE *>(pageAddress) + Stats_.PageSize_);
 }
 
-bool ObjectAllocator::ValidatePadding(unsigned char* paddingAddress, size_t size) const
+bool ObjectAllocator::ValidatePadding(unsigned char *paddingAddress, size_t size) const
 {
-    for(size_t i = 0; i < size; ++i)
-    {
-        if (*(paddingAddress + i) != ObjectAllocator::PAD_PATTERN)
-            return false;
-    }
-    return true;
+  for (size_t i = 0; i < size; ++i)
+  {
+    if (*(paddingAddress + i) != ObjectAllocator::PAD_PATTERN)
+      return false;
+  }
+  return true;
 }
 
 unsigned char *ObjectAllocator::GetHeaderAddress(GenericObject *object) const
