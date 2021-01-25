@@ -269,23 +269,25 @@ class ObjectAllocator
     OAStats Stats_;
     size_t HeaderSize_;
     size_t MidBlockSize_;
-    size_t TotalMidBlockSize_;
 
     GenericObject * AllocateNewPage(size_t pageSize);
     void AllocateNewPage_s(GenericObject* &pageList);
     void PushToFreeList(GenericObject* object);
+    void UpdateStats();
     
     void CheckBoundaries(unsigned char* address) const;
     bool ValidatePadding(unsigned char* paddingAddress, size_t size) const;
-    bool IsInPage(GenericObject* pageAddress, unsigned char* address) const;
-
-    unsigned char* GetHeaderAddress(GenericObject* object) const;
-    unsigned char* GetLeftPadAdrress(GenericObject* object) const;
-    unsigned char* GetRightPadAdrress(GenericObject* object) const;
-    void UpdateStats();
+    bool IsObjectInPage(GenericObject* pageAddress, unsigned char* address) const;
+    bool IsObjectUsed(GenericObject* object) const;
+    bool IsPageEmpty(GenericObject* page) const;
+    bool FreePage(GenericObject* page);
 
     void InitHeader(GenericObject* object, OAConfig::HBLOCK_TYPE headerType, const char* label);
     void FreeHeader(GenericObject* object, OAConfig::HBLOCK_TYPE headerType);
+    unsigned char* GetHeaderAddress(GenericObject* object) const;
+    unsigned char* GetLeftPadAdrress(GenericObject* object) const;
+    unsigned char* GetRightPadAdrress(GenericObject* object) const;
+
 };
 
 #endif
