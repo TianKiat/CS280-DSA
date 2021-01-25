@@ -101,7 +101,6 @@ void ObjectAllocator::Free(void *Object)
 {
   ++Stats_.Deallocations_;
 
-  //If we are not using the mem manager.
   if (Config_.UseCPPMemManager_)
   {
     delete[] reinterpret_cast<BYTE *>(Object);
@@ -129,13 +128,13 @@ void ObjectAllocator::Free(void *Object)
 
   if (Config_.DebugOn_)
   {
-    memset(object, FREED_PATTERN, Stats_.ObjectSize_);
+    std::memset(object, FREED_PATTERN, Stats_.ObjectSize_);
   }
   object->Next = nullptr;
 
   PushToFreeList(object);
-  // Update stats
-  Stats_.ObjectsInUse_;
+
+  --Stats_.ObjectsInUse_;
 }
 
 unsigned ObjectAllocator::DumpMemoryInUse(DUMPCALLBACK fn) const
@@ -270,7 +269,7 @@ GenericObject *ObjectAllocator::AllocateNewPage(size_t pageSize)
 
 void ObjectAllocator::AllocateNewPage_s(GenericObject *&pageList)
 {
-  if (Stats_.PagesInUse_ == Config_.MaxPages_)
+  if (Config_.MaxPages_ > 0 && Stats_.PagesInUse_ == Config_.MaxPages_)
   {
     throw OAException{OAException::OA_EXCEPTION::E_NO_PAGES, "AllocateNewPage_s: No logical memory available"};
   }
@@ -282,15 +281,14 @@ void ObjectAllocator::AllocateNewPage_s(GenericObject *&pageList)
     {
       std::memset(newPage, ALIGN_PATTERN, Stats_.PageSize_);
     }
-    // Link new page to page list
+
     newPage->Next = pageList;
     pageList = newPage;
 
-    //TODO: CAST BLOCKS INTO OBJECTS AND PUT THEM ON THE FREE LIST REFERENCE LINE: 612
     BYTE *PageStartAddress = reinterpret_cast<BYTE *>(newPage);
     BYTE *ObjectStartAddress = PageStartAddress + HeaderSize_;
 
-    for (; static_cast<unsigned>(abs(static_cast<int>(ObjectStartAddress - PageStartAddress))) < Stats_.PageSize_;
+    for (; static_cast<unsigned>(std::abs(static_cast<int>(ObjectStartAddress - PageStartAddress))) < Stats_.PageSize_;
          ObjectStartAddress += MidBlockSize_)
     {
       GenericObject *ObjectAddress = reinterpret_cast<GenericObject *>(ObjectStartAddress);
@@ -298,11 +296,11 @@ void ObjectAllocator::AllocateNewPage_s(GenericObject *&pageList)
 
       if (Config_.DebugOn_)
       {
-        memset(reinterpret_cast<BYTE *>(ObjectAddress) + PTR_SIZE, UNALLOCATED_PATTERN, Stats_.ObjectSize_ - PTR_SIZE);
-        memset(GetLeftPadAdrress(ObjectAddress), PAD_PATTERN, Config_.PadBytes_);
-        memset(GetRightPadAdrress(ObjectAddress), PAD_PATTERN, Config_.PadBytes_);
+        std::memset(reinterpret_cast<BYTE *>(ObjectAddress) + PTR_SIZE, UNALLOCATED_PATTERN, Stats_.ObjectSize_ - PTR_SIZE);
+        std::memset(GetLeftPadAdrress(ObjectAddress), PAD_PATTERN, Config_.PadBytes_);
+        std::memset(GetRightPadAdrress(ObjectAddress), PAD_PATTERN, Config_.PadBytes_);
       }
-      memset(GetHeaderAddress(ObjectAddress), 0, Config_.HBlockInfo_.size_);
+      std::memset(GetHeaderAddress(ObjectAddress), 0, Config_.HBlockInfo_.size_);
     }
   }
 }
@@ -544,7 +542,7 @@ void ObjectAllocator::FreeHeader(GenericObject *object, OAConfig::HBLOCK_TYPE he
         throw OAException(OAException::E_MULTIPLE_FREE, "FreeHeader: Object has already been freed.");
     }
     // Reset the basic header part of the extended to 0
-    memset(headerAddress + this->Config_.HBlockInfo_.additional_ + sizeof(unsigned short), 0, OAConfig::BASIC_HEADER_SIZE);
+    std::memset(headerAddress + this->Config_.HBlockInfo_.additional_ + sizeof(unsigned short), 0, OAConfig::BASIC_HEADER_SIZE);
   }
   break;
   case OAConfig::hbExternal:
