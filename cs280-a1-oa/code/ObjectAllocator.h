@@ -1,3 +1,15 @@
+/******************************************************************************/
+/*!
+\file   ObjectAllocator.h
+\author Ng Tian Kiat
+\par    email: tiankiat.ng\@digipen.edu
+\par    Course: CS280
+\par    Assignment 1
+\date   21 January 2021
+\brief  
+  This file contains the declaration for the Object Allocator.
+*/
+/******************************************************************************/
 //---------------------------------------------------------------------------
 #ifndef OBJECTALLOCATORH
 #define OBJECTALLOCATORH
