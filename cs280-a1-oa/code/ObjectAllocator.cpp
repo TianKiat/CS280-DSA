@@ -12,34 +12,35 @@
 */
 /******************************************************************************/
 #include "ObjectAllocator.h"
-
+#include <cstring> //<! std::memset, std::strcpy, std::strlen
+#include <iostream>
 ///TODO: Everything after Free(void *Object); https://github.com/ShumWengSang/CS280/blob/master/Assignment1/src/ObjectAllocator.cpp
 
 using BYTE = unsigned char;                 //!< Type of byte
-constexpr size_t PTR_SIZE = sizeof(void *); //!< Size of a pointer
+constexpr size_t PTR_SIZE = sizeof(intptr_t); //!< Size of a pointer
 
 inline size_t Align(size_t n, size_t alignment)
 {
   if (!alignment)
     return n;
 
-  size_t rem = n % alignment == 0 ? 0 : 1;
+  size_t rem = n % alignment == 0 ? 0ULL : 1ULL;
   return alignment * ((n / alignment) + rem);
 }
 
 ObjectAllocator::ObjectAllocator(size_t ObjectSize, const OAConfig &config)
     : PageList_{nullptr}, FreeList_{nullptr}, Config_{config}, Stats_{}
 {
-  HeaderSize_ = Align(PTR_SIZE + config.HBlockInfo_.size_ + config.PadBytes_, config.Alignment_);
-  size_t midBlockSize = static_cast<size_t>(config.PadBytes_ * 2) + ObjectSize + config.HBlockInfo_.size_;
-  MidBlockSize_ = Align(midBlockSize, config.Alignment_);
+  size_t leftHeaderSize = PTR_SIZE + config.HBlockInfo_.size_ + static_cast<size_t>(config.PadBytes_);
+  HeaderSize_ = Align(leftHeaderSize, config.Alignment_); // 14
+  size_t midBlockSize = ObjectSize + (Config_.PadBytes_ * 2ULL) + config.HBlockInfo_.size_;
+  MidBlockSize_ = Align(midBlockSize, config.Alignment_); // 36
+  std::cout << MidBlockSize_ << std::endl;
   Stats_.ObjectSize_ = ObjectSize;
-  Config_.InterAlignSize_ = MidBlockSize_ - midBlockSize;
+  Config_.InterAlignSize_ = static_cast<unsigned int>(MidBlockSize_ - midBlockSize);
+  Config_.LeftAlignSize_ = static_cast<unsigned int>(HeaderSize_ - leftHeaderSize);
 
-  Stats_.PageSize_ = HeaderSize_ + (config.ObjectsPerPage_ - 1) * MidBlockSize_ + ObjectSize + config.PadBytes_;
-
-  unsigned int leftHeaderSize = static_cast<unsigned int>(PTR_SIZE + config.HBlockInfo_.size_ + static_cast<size_t>(config.PadBytes_));
-  Config_.LeftAlignSize_ = static_cast<unsigned int>(Align(leftHeaderSize, config.Alignment_) - leftHeaderSize);
+  Stats_.PageSize_ = PTR_SIZE + Config_.LeftAlignSize_ + Config_.ObjectsPerPage_ * MidBlockSize_ - Config_.InterAlignSize_;
 
   AllocateNewPage_s(PageList_);
 }
@@ -64,7 +65,7 @@ ObjectAllocator::~ObjectAllocator() noexcept
   }
 }
 
-void *ObjectAllocator::Allocate(const char *label = 0)
+void *ObjectAllocator::Allocate(const char *label)
 {
   if (Config_.UseCPPMemManager_)
   {
@@ -76,7 +77,7 @@ void *ObjectAllocator::Allocate(const char *label = 0)
     }
     catch (const std::bad_alloc &)
     {
-      throw OAException{OAException::E_NO_MEMORY, "Allocate: No system memory available."};
+      throw OAException{OAException::E_NO_MEMORY, "Allocate: No system memory available!"};
     }
   }
 
@@ -115,11 +116,11 @@ void ObjectAllocator::Free(void *Object)
     {
       if (!ValidatePadding(GetLeftPadAdrress(object), Config_.PadBytes_))
       {
-        throw OAException{OAException::E_CORRUPTED_BLOCK, "Free: Object not on a boundary."};
+        throw OAException{OAException::E_CORRUPTED_BLOCK, "Free: Corrupted left padding!"};
       }
       if (!ValidatePadding(GetRightPadAdrress(object), Config_.PadBytes_))
       {
-        throw OAException{OAException::E_CORRUPTED_BLOCK, "Free: Object not on a boundary."};
+        throw OAException{OAException::E_CORRUPTED_BLOCK, "Free: Corrupted right padding!"};
       }
     }
   }
@@ -263,7 +264,7 @@ GenericObject *ObjectAllocator::AllocateNewPage(size_t pageSize)
   }
   catch (std::bad_alloc &)
   {
-    throw OAException{OAException::OA_EXCEPTION::E_NO_MEMORY, "AllocateNewPage: No system memory available."};
+    throw OAException{OAException::OA_EXCEPTION::E_NO_MEMORY, "AllocateNewPage: No system memory available!"};
   }
 }
 
@@ -271,7 +272,7 @@ void ObjectAllocator::AllocateNewPage_s(GenericObject *&pageList)
 {
   if (Config_.MaxPages_ > 0 && Stats_.PagesInUse_ == Config_.MaxPages_)
   {
-    throw OAException{OAException::OA_EXCEPTION::E_NO_PAGES, "AllocateNewPage_s: No logical memory available"};
+    throw OAException{OAException::OA_EXCEPTION::E_NO_PAGES, "AllocateNewPage_s: No logical memory available!"};
   }
   else
   {
@@ -282,8 +283,7 @@ void ObjectAllocator::AllocateNewPage_s(GenericObject *&pageList)
       std::memset(newPage, ALIGN_PATTERN, Stats_.PageSize_);
     }
 
-    newPage->Next = pageList;
-    pageList = newPage;
+    LinkPages(pageList, newPage);
 
     BYTE *PageStartAddress = reinterpret_cast<BYTE *>(newPage);
     BYTE *ObjectStartAddress = PageStartAddress + HeaderSize_;
@@ -303,6 +303,12 @@ void ObjectAllocator::AllocateNewPage_s(GenericObject *&pageList)
       std::memset(GetHeaderAddress(ObjectAddress), 0, Config_.HBlockInfo_.size_);
     }
   }
+}
+
+void ObjectAllocator::LinkPages(GenericObject*& head, GenericObject* node)
+{
+    node->Next = head;
+    head = node;
 }
 
 void ObjectAllocator::PushToFreeList(GenericObject *object)
@@ -325,29 +331,27 @@ void ObjectAllocator::UpdateStats()
 
 void ObjectAllocator::CheckBoundaries(unsigned char *address) const
 {
-  // Find the page the object rests in.
   GenericObject *pageList = PageList_;
-  // While loop stops when addr resides within the page.
+
   while (!IsObjectInPage(pageList, address))
   {
     pageList = pageList->Next;
-    // If its not in our pages, its not our memory.
+
     if (!pageList)
     {
-      throw OAException{OAException::E_BAD_BOUNDARY, "CheckBoundaries: Object not on a boundary."};
+      throw OAException{OAException::E_BAD_BOUNDARY, "CheckBoundaries: Address is not on boundary!"};
     }
   }
-  // We have found that is is in our pages. Check the boundary using %
+
   BYTE *pageStart = reinterpret_cast<BYTE *>(pageList);
 
-  // Check if we are intruding on header.
   if (static_cast<unsigned>(address - pageStart) < HeaderSize_)
-    throw OAException{OAException::E_BAD_BOUNDARY, "CheckBoundaries: Object not on a boundary."};
+    throw OAException{OAException::E_BAD_BOUNDARY, "CheckBoundaries: Address is not on boundary!"};
 
   pageStart += HeaderSize_;
   long displacement = address - pageStart;
   if (static_cast<size_t>(displacement) % MidBlockSize_ != 0)
-    throw OAException{OAException::E_BAD_BOUNDARY, "CheckBoundaries: Object not on a boundary."};
+    throw OAException{OAException::E_BAD_BOUNDARY, "CheckBoundaries: Address is not on boundary!"};
 }
 
 bool ObjectAllocator::ValidatePadding(unsigned char *paddingAddress, size_t size) const
@@ -372,7 +376,6 @@ bool ObjectAllocator::IsObjectUsed(GenericObject *object) const
   {
   case OAConfig::HBLOCK_TYPE::hbNone:
   {
-    // Checks if it is in free list.
     GenericObject *freelist = FreeList_;
     while (freelist)
     {
@@ -414,7 +417,7 @@ bool ObjectAllocator::IsPageEmpty(GenericObject *page) const
   return false;
 }
 
-bool ObjectAllocator::FreePage(GenericObject *page)
+void ObjectAllocator::FreePage(GenericObject *page)
 {
   GenericObject *temp = FreeList_;
   GenericObject *prev = nullptr;
@@ -455,7 +458,7 @@ void ObjectAllocator::InitHeader(GenericObject *object, OAConfig::HBLOCK_TYPE he
     BYTE *headerAddress = GetHeaderAddress(object);
     unsigned *allocationNumber = reinterpret_cast<unsigned *>(headerAddress);
     *allocationNumber = Stats_.Allocations_;
-    // Now set the allocation flag
+
     BYTE *flag = reinterpret_cast<BYTE *>(allocationNumber + 1);
     *flag = true;
   }
@@ -463,13 +466,12 @@ void ObjectAllocator::InitHeader(GenericObject *object, OAConfig::HBLOCK_TYPE he
   case OAConfig::hbExtended:
   {
     BYTE *headerAddress = GetHeaderAddress(object);
-    // Set the 2 byte use-counter, 5 for 5 bytes of user defined stuff.
     unsigned short *counter = reinterpret_cast<unsigned short *>(headerAddress + Config_.HBlockInfo_.additional_);
     ++(*counter);
 
     unsigned *allocationNumber = reinterpret_cast<unsigned *>(counter + 1);
     *allocationNumber = Stats_.Allocations_;
-    // Now set the allocation flag
+
     BYTE *flag = reinterpret_cast<BYTE *>(allocationNumber + 1);
     *flag = true;
   }
@@ -487,18 +489,18 @@ void ObjectAllocator::InitHeader(GenericObject *object, OAConfig::HBLOCK_TYPE he
       {
         try
         {
-          (*memPtr)->label = new char[strlen(label) + 1];
+          (*memPtr)->label = new char[std::strlen(label) + 1];
         }
         catch (std::bad_alloc &)
         {
-          throw OAException(OAException::E_NO_MEMORY, "InitHeader: No system memory available.");
+          throw OAException(OAException::E_NO_MEMORY, "InitHeader: No system memory available!");
         }
-        strcpy((*memPtr)->label, label);
+        std::strcpy((*memPtr)->label, label);
       }
     }
     catch (std::bad_alloc &)
     {
-      throw OAException(OAException::E_NO_MEMORY, "InitHeader: No system memory available.");
+      throw OAException(OAException::E_NO_MEMORY, "InitHeader: No system memory available!");
     }
   }
   break;
@@ -518,19 +520,18 @@ void ObjectAllocator::FreeHeader(GenericObject *object, OAConfig::HBLOCK_TYPE he
     {
       BYTE *lastByte = reinterpret_cast<BYTE *>(object) + Stats_.ObjectSize_ - 1;
       if (*lastByte == ObjectAllocator::FREED_PATTERN)
-        throw OAException{OAException::E_MULTIPLE_FREE, "FreeHeader: Object has already been freed."};
+        throw OAException{OAException::E_MULTIPLE_FREE, "FreeHeader: Object has already been freed!"};
     }
   }
   break;
   case OAConfig::hbBasic:
   {
-    // Check if the bit is already free
     if (Config_.DebugOn_)
     {
       if (0 == *(headerAddress + sizeof(unsigned)))
-        throw OAException{OAException::E_MULTIPLE_FREE, "FreeHeader: Object has already been freed."};
+        throw OAException{OAException::E_MULTIPLE_FREE, "FreeHeader: Object has already been freed!"};
     }
-    // Reset the basic header
+
     std::memset(headerAddress, 0, OAConfig::BASIC_HEADER_SIZE);
   }
   break;
@@ -539,19 +540,17 @@ void ObjectAllocator::FreeHeader(GenericObject *object, OAConfig::HBLOCK_TYPE he
     if (Config_.DebugOn_)
     {
       if (0 == *(headerAddress + sizeof(unsigned) + this->Config_.HBlockInfo_.additional_ + sizeof(unsigned short)))
-        throw OAException(OAException::E_MULTIPLE_FREE, "FreeHeader: Object has already been freed.");
+        throw OAException(OAException::E_MULTIPLE_FREE, "FreeHeader: Object has already been freed!");
     }
-    // Reset the basic header part of the extended to 0
+
     std::memset(headerAddress + this->Config_.HBlockInfo_.additional_ + sizeof(unsigned short), 0, OAConfig::BASIC_HEADER_SIZE);
   }
   break;
   case OAConfig::hbExternal:
   {
-    // Free the external values
-
     MemBlockInfo **info = reinterpret_cast<MemBlockInfo **>(headerAddress);
     if (nullptr == *info && Config_.DebugOn_)
-      throw OAException(OAException::E_MULTIPLE_FREE, "FreeHeader: Object has already been freed.");
+      throw OAException(OAException::E_MULTIPLE_FREE, "FreeHeader: Object has already been freed!");
 
     delete *info;
     *info = nullptr;
