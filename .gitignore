@@ -3,7 +3,6 @@
 *.json
 *.txt
 *.md
-*.chm
 *.o
 *.exe
 *.vs
