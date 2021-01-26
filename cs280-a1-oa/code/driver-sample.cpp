@@ -2193,7 +2193,7 @@ int main(int argc, char** argv)
         Stress(false);
         cout << endl;
         break;
-#if 1
+#if 0
     case 18:
         cout << "============================== Test alignment..." << endl;
         TestAlignment();

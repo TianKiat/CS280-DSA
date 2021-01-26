@@ -1,4 +1,3 @@
-
 /******************************************************************************/
 /*!
 \file   ObjectAllocator.cpp
@@ -13,12 +12,21 @@
 /******************************************************************************/
 #include "ObjectAllocator.h"
 #include <cstring> //<! std::memset, std::strcpy, std::strlen
-#include <iostream>
-///TODO: Everything after Free(void *Object); https://github.com/ShumWengSang/CS280/blob/master/Assignment1/src/ObjectAllocator.cpp
 
-using BYTE = unsigned char;                 //!< Type of byte
+using BYTE = unsigned char;                   //!< Type of byte
 constexpr size_t PTR_SIZE = sizeof(intptr_t); //!< Size of a pointer
 
+/******************************************************************************/
+/*!
+\brief
+  This function returns the closest \par n that is the multiple of \par alignment.
+
+\par n The size to align.
+\par alignment The quotient to align to.
+
+\return The aligned size.
+*/
+/******************************************************************************/
 inline size_t Align(size_t n, size_t alignment)
 {
   if (!alignment)
@@ -28,23 +36,37 @@ inline size_t Align(size_t n, size_t alignment)
   return alignment * ((n / alignment) + rem);
 }
 
+/******************************************************************************/
+/*!
+\brief
+  This is the constructor of an Object Allocator.
+
+\par ObjectSize The size of the object that this allocator stores.
+\par config A client specified Allocator configuration
+*/
+/******************************************************************************/
 ObjectAllocator::ObjectAllocator(size_t ObjectSize, const OAConfig &config)
     : PageList_{nullptr}, FreeList_{nullptr}, Config_{config}, Stats_{}
 {
   size_t leftHeaderSize = PTR_SIZE + config.HBlockInfo_.size_ + static_cast<size_t>(config.PadBytes_);
-  HeaderSize_ = Align(leftHeaderSize, config.Alignment_); // 14
+  HeaderSize_ = Align(leftHeaderSize, config.Alignment_);
   size_t midBlockSize = ObjectSize + (Config_.PadBytes_ * 2ULL) + config.HBlockInfo_.size_;
-  MidBlockSize_ = Align(midBlockSize, config.Alignment_); // 36
-  std::cout << MidBlockSize_ << std::endl;
+  MidBlockSize_ = Align(midBlockSize, config.Alignment_);
+
   Stats_.ObjectSize_ = ObjectSize;
   Config_.InterAlignSize_ = static_cast<unsigned int>(MidBlockSize_ - midBlockSize);
   Config_.LeftAlignSize_ = static_cast<unsigned int>(HeaderSize_ - leftHeaderSize);
-
   Stats_.PageSize_ = PTR_SIZE + Config_.LeftAlignSize_ + Config_.ObjectsPerPage_ * MidBlockSize_ - Config_.InterAlignSize_;
 
-  AllocateNewPage_s(PageList_);
+  AllocateNewPage(PageList_);
 }
 
+/******************************************************************************/
+/*!
+\brief
+  This is the destructor of an Object Allocator.
+*/
+/******************************************************************************/
 ObjectAllocator::~ObjectAllocator() noexcept
 {
   GenericObject *page = PageList_;
@@ -65,39 +87,69 @@ ObjectAllocator::~ObjectAllocator() noexcept
   }
 }
 
+/******************************************************************************/
+/*!
+\brief
+  This function provides block of memory to store an object.
+
+\par label A label for the block of memory requested.
+\return A pointer to an allocated block of memory.
+*/
+/******************************************************************************/
 void *ObjectAllocator::Allocate(const char *label)
 {
   if (Config_.UseCPPMemManager_)
   {
     try
     {
-      BYTE *newObject = new BYTE[Stats_.ObjectSize_];
-      UpdateStats();
-      return newObject;
+      BYTE *newObj = new BYTE[Stats_.ObjectSize_];
+
+      ++Stats_.ObjectsInUse_;
+      if (Stats_.ObjectsInUse_ > Stats_.MostObjects_)
+        Stats_.MostObjects_ = Stats_.ObjectsInUse_;
+      --Stats_.FreeObjects_;
+      ++Stats_.Allocations_;
+
+      return newObj;
     }
-    catch (const std::bad_alloc &)
+    catch (std::bad_alloc &)
     {
-      throw OAException{OAException::E_NO_MEMORY, "Allocate: No system memory available!"};
+      throw OAException(OAException::E_NO_MEMORY, "Allocate: No system memory available!");
     }
   }
 
-  if (!FreeList_)
+  if (nullptr == FreeList_)
   {
-    AllocateNewPage_s(PageList_);
+    AllocateNewPage(PageList_);
   }
-
   GenericObject *AllocatedObject = FreeList_;
+
   FreeList_ = FreeList_->Next;
 
   if (Config_.DebugOn_)
+  {
     std::memset(AllocatedObject, ALLOCATED_PATTERN, Stats_.ObjectSize_);
+  }
 
-  UpdateStats();
+  ++Stats_.ObjectsInUse_;
+  if (Stats_.ObjectsInUse_ > Stats_.MostObjects_)
+    Stats_.MostObjects_ = Stats_.ObjectsInUse_;
+  --Stats_.FreeObjects_;
+  ++Stats_.Allocations_;
+
   InitHeader(AllocatedObject, Config_.HBlockInfo_.type_, label);
 
   return AllocatedObject;
 }
 
+/******************************************************************************/
+/*!
+\brief
+  This function frees block of memory used by an object.
+
+\par Object The objects address that needs to be freed.
+*/
+/******************************************************************************/
 void ObjectAllocator::Free(void *Object)
 {
   ++Stats_.Deallocations_;
@@ -138,6 +190,15 @@ void ObjectAllocator::Free(void *Object)
   --Stats_.ObjectsInUse_;
 }
 
+/******************************************************************************/
+/*!
+\brief
+  This function calls a callback \p fn on any active object in the allocator.
+
+\par fn The callback function.
+\return The amount of bytes currently in use by the allocator.
+*/
+/******************************************************************************/
 unsigned ObjectAllocator::DumpMemoryInUse(DUMPCALLBACK fn) const
 {
   if (!PageList_)
@@ -166,6 +227,15 @@ unsigned ObjectAllocator::DumpMemoryInUse(DUMPCALLBACK fn) const
   }
 }
 
+/******************************************************************************/
+/*!
+\brief
+  This function calls a callback \p fn on any corrupted object in the allocator.
+
+\par fn The callback function.
+\par The number of blocks/objects that are corrupted.
+*/
+/******************************************************************************/
 unsigned ObjectAllocator::ValidatePages(VALIDATECALLBACK fn) const
 {
   if (!Config_.DebugOn_ || Config_.PadBytes_ == 0)
@@ -193,6 +263,14 @@ unsigned ObjectAllocator::ValidatePages(VALIDATECALLBACK fn) const
   return numBlocksCorrupted;
 }
 
+/******************************************************************************/
+/*!
+\brief
+  This checks for empty pages and frees their memory (return to OS).
+
+\return number of pages freed.
+*/
+/******************************************************************************/
 unsigned ObjectAllocator::FreeEmptyPages()
 {
   if (!PageList_)
@@ -201,7 +279,7 @@ unsigned ObjectAllocator::FreeEmptyPages()
   GenericObject *tempHead = PageList_;
   GenericObject *prevHead = nullptr;
 
-  while (tempHead && IsPageEmpty(tempHead))
+  while (tempHead && IsPageFree(tempHead))
   {
     PageList_ = tempHead->Next;
     FreePage(tempHead);
@@ -211,7 +289,7 @@ unsigned ObjectAllocator::FreeEmptyPages()
 
   while (tempHead)
   {
-    while (tempHead && !IsPageEmpty(tempHead))
+    while (tempHead && !IsPageFree(tempHead))
     {
       prevHead = tempHead;
       tempHead = tempHead->Next;
@@ -229,106 +307,152 @@ unsigned ObjectAllocator::FreeEmptyPages()
   return numEmptyPages;
 }
 
+/******************************************************************************/
+/*!
+\brief
+  This function sets the debug state of the object allocator
+
+\par State Send \p true to turn on debugging, \p false to turn off debugging.
+*/
+/******************************************************************************/
 void ObjectAllocator::SetDebugState(bool State)
 {
   Config_.DebugOn_ = State;
 }
 
+/******************************************************************************/
+/*!
+\brief
+  This function returns the free list of the object allocator.
+
+\return Pointer to the free list.
+*/
+/******************************************************************************/
 const void *ObjectAllocator::GetFreeList() const
 {
   return FreeList_;
 }
 
+/******************************************************************************/
+/*!
+\brief
+  This function returns the page list of the object allocator.
+
+\return Pointer to the page list.
+*/
+/******************************************************************************/
 const void *ObjectAllocator::GetPageList() const
 {
   return PageList_;
 }
 
+/******************************************************************************/
+/*!
+\brief
+  This function returns the configuration of the object allocator.
+
+\return A copy of this allocator's configuration.
+*/
+/******************************************************************************/
 OAConfig ObjectAllocator::GetConfig() const
 {
   return Config_;
 }
 
+/******************************************************************************/
+/*!
+\brief
+  This function returns the statistics of the object allocator.
+
+\return A copy of this allocator's statistics.
+*/
+/******************************************************************************/
 OAStats ObjectAllocator::GetStats() const
 {
   return Stats_;
 }
 
-GenericObject *ObjectAllocator::AllocateNewPage(size_t pageSize)
-{
-  try
-  {
-    GenericObject *newPage = reinterpret_cast<GenericObject *>(new unsigned char[pageSize]());
-    ++Stats_.PagesInUse_;
-    return newPage;
-  }
-  catch (std::bad_alloc &)
-  {
-    throw OAException{OAException::OA_EXCEPTION::E_NO_MEMORY, "AllocateNewPage: No system memory available!"};
-  }
-}
+/******************************************************************************/
+/*!
+\brief
+  This function allocates new memory for a page.
 
-void ObjectAllocator::AllocateNewPage_s(GenericObject *&pageList)
+\par pageList A pointer to the previous page list.
+*/
+/******************************************************************************/
+void ObjectAllocator::AllocateNewPage(GenericObject *&pageList)
 {
-  if (Config_.MaxPages_ > 0 && Stats_.PagesInUse_ == Config_.MaxPages_)
+  if (Stats_.PagesInUse_ == Config_.MaxPages_)
   {
-    throw OAException{OAException::OA_EXCEPTION::E_NO_PAGES, "AllocateNewPage_s: No logical memory available!"};
+    throw OAException(OAException::OA_EXCEPTION::E_NO_PAGES, "Out of pages!");
   }
   else
   {
-    GenericObject *newPage = AllocateNewPage(Stats_.PageSize_);
+    GenericObject *newPage = nullptr;
+    try
+    {
+      newPage = reinterpret_cast<GenericObject *>(new BYTE[Stats_.PageSize_]());
+      ++Stats_.PagesInUse_;
+    }
+    catch (std::bad_alloc &)
+    {
+      throw OAException{OAException::OA_EXCEPTION::E_NO_MEMORY, "AllocateNewPage: No system memory available!"};
+    }
 
     if (Config_.DebugOn_)
     {
       std::memset(newPage, ALIGN_PATTERN, Stats_.PageSize_);
     }
 
-    LinkPages(pageList, newPage);
+    newPage->Next = pageList;
+    pageList = newPage;
 
     BYTE *PageStartAddress = reinterpret_cast<BYTE *>(newPage);
-    BYTE *ObjectStartAddress = PageStartAddress + HeaderSize_;
+    BYTE *DataStartAddress = PageStartAddress + HeaderSize_;
 
-    for (; static_cast<unsigned>(std::abs(static_cast<int>(ObjectStartAddress - PageStartAddress))) < Stats_.PageSize_;
-         ObjectStartAddress += MidBlockSize_)
+    for (; static_cast<unsigned>(abs(static_cast<int>(DataStartAddress - PageStartAddress))) < Stats_.PageSize_;
+         DataStartAddress += MidBlockSize_)
     {
-      GenericObject *ObjectAddress = reinterpret_cast<GenericObject *>(ObjectStartAddress);
-      PushToFreeList(ObjectAddress);
+      GenericObject *dataAddress = reinterpret_cast<GenericObject *>(DataStartAddress);
+
+      PushToFreeList(dataAddress);
 
       if (Config_.DebugOn_)
       {
-        std::memset(reinterpret_cast<BYTE *>(ObjectAddress) + PTR_SIZE, UNALLOCATED_PATTERN, Stats_.ObjectSize_ - PTR_SIZE);
-        std::memset(GetLeftPadAdrress(ObjectAddress), PAD_PATTERN, Config_.PadBytes_);
-        std::memset(GetRightPadAdrress(ObjectAddress), PAD_PATTERN, Config_.PadBytes_);
+        std::memset(reinterpret_cast<BYTE *>(dataAddress) + PTR_SIZE, UNALLOCATED_PATTERN, Stats_.ObjectSize_ - PTR_SIZE);
+        std::memset(GetLeftPadAdrress(dataAddress), PAD_PATTERN, Config_.PadBytes_);
+        std::memset(GetRightPadAdrress(dataAddress), PAD_PATTERN, Config_.PadBytes_);
       }
-      std::memset(GetHeaderAddress(ObjectAddress), 0, Config_.HBlockInfo_.size_);
+      std::memset(GetHeaderAddress(dataAddress), 0, Config_.HBlockInfo_.size_);
     }
   }
 }
 
-void ObjectAllocator::LinkPages(GenericObject*& head, GenericObject* node)
-{
-    node->Next = head;
-    head = node;
-}
+/******************************************************************************/
+/*!
+\brief
+  This function puts an object at the front of the free list.
 
+\par object The object to put on the free list.
+*/
+/******************************************************************************/
 void ObjectAllocator::PushToFreeList(GenericObject *object)
 {
   GenericObject *temp = FreeList_;
   FreeList_ = object;
   object->Next = temp;
 
-  ++Stats_.FreeObjects_;
+  Stats_.FreeObjects_++;
 }
 
-void ObjectAllocator::UpdateStats()
-{
-  ++Stats_.ObjectsInUse_;
-  if (Stats_.ObjectsInUse_ > Stats_.MostObjects_)
-    Stats_.MostObjects_ = Stats_.ObjectsInUse_;
-  --Stats_.FreeObjects_;
-  ++Stats_.Allocations_;
-}
+/******************************************************************************/
+/*!
+\brief
+  This function checks if a given address is on a valid boundary.
 
+\par address The address to validate.
+*/
+/******************************************************************************/
 void ObjectAllocator::CheckBoundaries(unsigned char *address) const
 {
   GenericObject *pageList = PageList_;
@@ -354,6 +478,15 @@ void ObjectAllocator::CheckBoundaries(unsigned char *address) const
     throw OAException{OAException::E_BAD_BOUNDARY, "CheckBoundaries: Address is not on boundary!"};
 }
 
+/******************************************************************************/
+/*!
+\brief
+  This function checks if a given padding address is valid.
+
+\par address The address to validate.
+\return Returns \p true if padding is valid, else \p false if corrupted.
+*/
+/******************************************************************************/
 bool ObjectAllocator::ValidatePadding(unsigned char *paddingAddress, size_t size) const
 {
   for (size_t i = 0; i < size; ++i)
@@ -364,12 +497,31 @@ bool ObjectAllocator::ValidatePadding(unsigned char *paddingAddress, size_t size
   return true;
 }
 
+/******************************************************************************/
+/*!
+\brief
+  This function checks if a given address is in a page.
+
+\par pageAddress The page to check.
+\par address The address to check.
+\return Returns \p true if address is in page, else \p false.
+*/
+/******************************************************************************/
 bool ObjectAllocator::IsObjectInPage(GenericObject *pageAddress, unsigned char *address) const
 {
   return (address >= reinterpret_cast<BYTE *>(pageAddress) &&
           address < reinterpret_cast<BYTE *>(pageAddress) + Stats_.PageSize_);
 }
 
+/******************************************************************************/
+/*!
+\brief
+  This function checks if a given block address is currently used.
+
+\par object The object to check.
+\return Returns \p true if block is used, else \p false.
+*/
+/******************************************************************************/
 bool ObjectAllocator::IsObjectUsed(GenericObject *object) const
 {
   switch (Config_.HBlockInfo_.type_)
@@ -401,7 +553,16 @@ bool ObjectAllocator::IsObjectUsed(GenericObject *object) const
   }
 }
 
-bool ObjectAllocator::IsPageEmpty(GenericObject *page) const
+/******************************************************************************/
+/*!
+\brief
+  This function checks if a given page is not used at all.
+
+\par page The page to check.
+\return Returns \p true if page is free, else \p false.
+*/
+/******************************************************************************/
+bool ObjectAllocator::IsPageFree(GenericObject *page) const
 {
   GenericObject *temp = FreeList_;
   unsigned freeObjectsInPage = 0;
@@ -417,6 +578,14 @@ bool ObjectAllocator::IsPageEmpty(GenericObject *page) const
   return false;
 }
 
+/******************************************************************************/
+/*!
+\brief
+  This function returns memory used by a page back to the OS.
+
+\par page The page to free.
+*/
+/******************************************************************************/
 void ObjectAllocator::FreePage(GenericObject *page)
 {
   GenericObject *temp = FreeList_;
@@ -438,7 +607,7 @@ void ObjectAllocator::FreePage(GenericObject *page)
     }
 
     if (!temp)
-      return;
+      break;
     prev->Next = temp->Next;
 
     --Stats_.FreeObjects_;
@@ -449,7 +618,17 @@ void ObjectAllocator::FreePage(GenericObject *page)
   --Stats_.PagesInUse_;
 }
 
-void ObjectAllocator::InitHeader(GenericObject *object, OAConfig::HBLOCK_TYPE headerType, const char *label)
+/******************************************************************************/
+/*!
+\brief
+  This function formats and initializes the header of a block.
+
+\par object The block to initialize.
+\par headerType The type of header to initialize.
+\par label_ A cstring label for the block of memory.
+*/
+/******************************************************************************/
+void ObjectAllocator::InitHeader(GenericObject *object, OAConfig::HBLOCK_TYPE headerType, const char *label_)
 {
   switch (headerType)
   {
@@ -482,20 +661,18 @@ void ObjectAllocator::InitHeader(GenericObject *object, OAConfig::HBLOCK_TYPE he
     MemBlockInfo **memPtr = reinterpret_cast<MemBlockInfo **>(headerAddress);
     try
     {
-      *memPtr = new MemBlockInfo{};
-      (*memPtr)->in_use = true;
-      (*memPtr)->alloc_num = Stats_.Allocations_;
-      if (label)
+      *memPtr = new MemBlockInfo{true, nullptr, Stats_.Allocations_};
+      if (label_)
       {
         try
         {
-          (*memPtr)->label = new char[std::strlen(label) + 1];
+          (*memPtr)->label = new char[std::strlen(label_) + 1];
         }
         catch (std::bad_alloc &)
         {
           throw OAException(OAException::E_NO_MEMORY, "InitHeader: No system memory available!");
         }
-        std::strcpy((*memPtr)->label, label);
+        std::strcpy((*memPtr)->label, label_);
       }
     }
     catch (std::bad_alloc &)
@@ -509,6 +686,15 @@ void ObjectAllocator::InitHeader(GenericObject *object, OAConfig::HBLOCK_TYPE he
   }
 }
 
+/******************************************************************************/
+/*!
+\brief
+  This function sets a block's header to free / unused.
+
+\par object The block to free.
+\par headerType The type of header to free.
+*/
+/******************************************************************************/
 void ObjectAllocator::FreeHeader(GenericObject *object, OAConfig::HBLOCK_TYPE headerType)
 {
   BYTE *headerAddress = GetHeaderAddress(object);
@@ -550,8 +736,10 @@ void ObjectAllocator::FreeHeader(GenericObject *object, OAConfig::HBLOCK_TYPE he
   {
     MemBlockInfo **info = reinterpret_cast<MemBlockInfo **>(headerAddress);
     if (nullptr == *info && Config_.DebugOn_)
-      throw OAException(OAException::E_MULTIPLE_FREE, "FreeHeader: Object has already been freed!");
+      return;
 
+    if ((*info)->label)
+      delete[](*info)->label;
     delete *info;
     *info = nullptr;
   }
@@ -561,15 +749,44 @@ void ObjectAllocator::FreeHeader(GenericObject *object, OAConfig::HBLOCK_TYPE he
   }
 }
 
+/******************************************************************************/
+/*!
+\brief
+  This function returns the header address of a block.
+
+\par object The block to get the header address from.
+\return A pointer to the header of the block.
+*/
+/******************************************************************************/
 unsigned char *ObjectAllocator::GetHeaderAddress(GenericObject *object) const
 {
   return reinterpret_cast<BYTE *>(object) - Config_.HBlockInfo_.size_ - Config_.PadBytes_;
 }
+
+/******************************************************************************/
+/*!
+\brief
+  This function returns the left padding address of a block.
+
+\par object The block to get the left padding address from.
+\return A pointer to the left padding of the block.
+*/
+/******************************************************************************/
 unsigned char *ObjectAllocator::GetLeftPadAdrress(GenericObject *object) const
 {
   return reinterpret_cast<BYTE *>(object) - Config_.PadBytes_;
 }
+
+/******************************************************************************/
+/*!
+\brief
+  This function returns the right padding address of a block.
+
+\par object The block to get the right padding address from.
+\return A pointer to the right padding of the block.
+*/
+/******************************************************************************/
 unsigned char *ObjectAllocator::GetRightPadAdrress(GenericObject *object) const
 {
-  return reinterpret_cast<BYTE *>(object) + Config_.PadBytes_;
+  return reinterpret_cast<BYTE *>(object) + Stats_.ObjectSize_;
 }

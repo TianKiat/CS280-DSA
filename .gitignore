@@ -6,3 +6,13 @@
 *.chm
 *.o
 *.exe
+*.vs
+
+**/Debug
+**/x64
+
+*.vcxproj
+*.vcxproj.filters
+*.vcxproj.user
+
+**.stackdump
