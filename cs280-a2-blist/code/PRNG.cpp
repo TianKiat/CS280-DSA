@@ -15,7 +15,7 @@ namespace Utils
 static unsigned int SEED_X = 521288629;
 static unsigned int SEED_Y = 362436069;
 
-unsigned rand()
+unsigned rand(void)
 {
   /* Use any pair of non-equal numbers from this list for "a" and "b"
       18000 18030 18273 18513 18879 19074 19098 19164 19215 19584
