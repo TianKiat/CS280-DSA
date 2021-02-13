@@ -159,7 +159,7 @@ class BList
 
     // Other private data and methods you may need ...
     BListStats stats_;
-    BNode * CreateNode(const BNode * rhs);
+    BNode * CreateNode(const BNode * rhs = nullptr);
     BNode * GetNodeAtIndex(int index) const;
     void FreeNode(BNode* node);
     void IncrementNodeCount(BNode * node);

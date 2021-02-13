@@ -10,18 +10,42 @@
   This file contains the implementation for the BList.
 */
 /******************************************************************************/
+
+/******************************************************************************/
+/*!
+\brief
+  This function returns the memory size of a node in bytes.
+
+
+\return size of node.
+*/
+/******************************************************************************/
 template <typename T, int Size>
 size_t BList<T, Size>::nodesize(void)
 {
   return sizeof(BNode);
 }
 
+/******************************************************************************/
+/*!
+\brief
+  This function returns the head of list.
+
+\return The head node.
+*/
+/******************************************************************************/
 template <typename T, int Size>
 const typename BList<T, Size>::BNode *BList<T, Size>::GetHead() const
 {
   return head_;
 }
 
+/******************************************************************************/
+/*!
+\brief
+  Default Constructor
+*/
+/******************************************************************************/
 template <typename T, int Size>
 BList<T, Size>::BList() : head_{nullptr}, tail_{nullptr}
 {
@@ -29,12 +53,19 @@ BList<T, Size>::BList() : head_{nullptr}, tail_{nullptr}
   stats_.ArraySize = Size;
 }
 
+/******************************************************************************/
+/*!
+\brief
+  Copy Constructor
+\par rhs the BList to copy.
+*/
+/******************************************************************************/
 template <typename T, int Size>
 BList<T, Size>::BList(const BList &rhs) : stats_{rhs.stats_}
 {
   auto rhs_current = rhs.GetHead();
-  BNode * current = nullptr;
-  BNode * prev = nullptr;
+  BNode *current = nullptr;
+  BNode *prev = nullptr;
 
   while (rhs_current)
   {
@@ -59,12 +90,25 @@ BList<T, Size>::BList(const BList &rhs) : stats_{rhs.stats_}
   tail_ = prev;
 }
 
+/******************************************************************************/
+/*!
+\brief
+  Destructor
+*/
+/******************************************************************************/
 template <typename T, int Size>
 BList<T, Size>::~BList()
 {
   clear();
 }
 
+/******************************************************************************/
+/*!
+\brief
+  Copy assignmen operator
+\par rhs the BList to copy.
+*/
+/******************************************************************************/
 template <typename T, int Size>
 BList<T, Size> &BList<T, Size>::operator=(const BList &rhs)
 {
@@ -74,8 +118,8 @@ BList<T, Size> &BList<T, Size>::operator=(const BList &rhs)
   clear();
 
   auto rhs_current = rhs.GetHead();
-  BNode * current = nullptr;
-  BNode * prev = nullptr;
+  BNode *current = nullptr;
+  BNode *prev = nullptr;
 
   while (rhs_current)
   {
@@ -102,6 +146,13 @@ BList<T, Size> &BList<T, Size>::operator=(const BList &rhs)
   return *this;
 }
 
+/******************************************************************************/
+/*!
+\brief
+  This function pushes a value to the back of the list.
+\par value to push.
+*/
+/******************************************************************************/
 template <typename T, int Size>
 void BList<T, Size>::push_back(const T &value)
 {
@@ -114,7 +165,7 @@ void BList<T, Size>::push_back(const T &value)
   else
   {
     //create a new node
-    auto new_node = CreateNode(nullptr);
+    auto new_node = CreateNode();
     new_node->values[0] = value;
     IncrementNodeCount(new_node);
 
@@ -131,6 +182,13 @@ void BList<T, Size>::push_back(const T &value)
   ++stats_.ItemCount;
 }
 
+/******************************************************************************/
+/*!
+\brief
+  This function pushes a value to the front of the list.
+\par value to push.
+*/
+/******************************************************************************/
 template <typename T, int Size>
 void BList<T, Size>::push_front(const T &value)
 {
@@ -146,7 +204,7 @@ void BList<T, Size>::push_front(const T &value)
   else
   {
     //create a new node
-    auto new_node = CreateNode(nullptr);
+    auto new_node = CreateNode();
     new_node->values[0] = value;
     IncrementNodeCount(new_node);
 
@@ -163,6 +221,13 @@ void BList<T, Size>::push_front(const T &value)
   ++stats_.ItemCount;
 }
 
+/******************************************************************************/
+/*!
+\brief
+  This function insert a value into the list while maintaining order.
+\par value to push.
+*/
+/******************************************************************************/
 template <typename T, int Size>
 void BList<T, Size>::insert(const T &value)
 {
@@ -233,6 +298,13 @@ void BList<T, Size>::insert(const T &value)
   }
 }
 
+/******************************************************************************/
+/*!
+\brief
+  This function removes a value at the given index.
+\par index of the list to remove the value from.
+*/
+/******************************************************************************/
 template <typename T, int Size>
 void BList<T, Size>::remove(int index)
 {
@@ -245,6 +317,13 @@ void BList<T, Size>::remove(int index)
     FreeNode(node);
 }
 
+/******************************************************************************/
+/*!
+\brief
+  This function removes a value from the list.
+\par value to remove.
+*/
+/******************************************************************************/
 template <typename T, int Size>
 void BList<T, Size>::remove_by_value(const T &value)
 {
@@ -276,6 +355,14 @@ void BList<T, Size>::remove_by_value(const T &value)
   }
 }
 
+/******************************************************************************/
+/*!
+\brief
+  This function finds the index of the element containing \p value.
+\par value to find.
+\return -1 if index is not found.
+*/
+/******************************************************************************/
 template <typename T, int Size>
 int BList<T, Size>::find(const T &value) const
 {
@@ -294,24 +381,51 @@ int BList<T, Size>::find(const T &value) const
   return -1;
 }
 
+/******************************************************************************/
+/*!
+\brief
+  Subscript operator of the list allows array like access. No bounds check.
+\par index position to access.
+*/
+/******************************************************************************/
 template <typename T, int Size>
 T &BList<T, Size>::operator[](int index)
 {
   return GetValueAtIndex(index);
 }
 
+/******************************************************************************/
+/*!
+\brief
+  Subscript operator of the list allows array like access. No bounds check.
+\par index position to access.
+*/
+/******************************************************************************/
 template <typename T, int Size>
 const T &BList<T, Size>::operator[](int index) const
 {
   return GetValueAtIndex(index);
 }
 
+/******************************************************************************/
+/*!
+\brief
+  This function returns the current size of the list.
+\return number of items currently in the list.
+*/
+/******************************************************************************/
 template <typename T, int Size>
 size_t BList<T, Size>::size() const
 {
   return stats_.ItemCount;
 }
 
+/******************************************************************************/
+/*!
+\brief
+  This function removes all items in the list.
+*/
+/******************************************************************************/
 template <typename T, int Size>
 void BList<T, Size>::clear()
 {
@@ -319,12 +433,27 @@ void BList<T, Size>::clear()
     remove(0);
 }
 
+/******************************************************************************/
+/*!
+\brief
+  This function returns the stats of the list.
+\return stats of the list the list.
+*/
+/******************************************************************************/
 template <typename T, int Size>
 BListStats BList<T, Size>::GetStats() const
 {
   return stats_;
 }
 
+/******************************************************************************/
+/*!
+\brief
+  This function creates a new node, or copies a node.
+\par node to copy from.
+\return a pointer to the new node.
+*/
+/******************************************************************************/
 template <typename T, int Size>
 typename BList<T, Size>::BNode *BList<T, Size>::CreateNode(const BNode *rhs)
 {
@@ -346,9 +475,21 @@ typename BList<T, Size>::BNode *BList<T, Size>::CreateNode(const BNode *rhs)
   return new_node;
 }
 
+/******************************************************************************/
+/*!
+\brief
+  This function returns the node containing the given \p index.
+\par index to get the node from.
+\return pointer to the node.
+*/
+/******************************************************************************/
 template <typename T, int Size>
 typename BList<T, Size>::BNode *BList<T, Size>::GetNodeAtIndex(int index) const
 {
+  if (index < 0 || index > stats_.ItemCount)
+    throw BListException{
+        BListException::BLIST_EXCEPTION::E_BAD_INDEX, "Index out of range!"};
+
   auto total_count = 0;
   auto current = head_;
 
@@ -366,6 +507,13 @@ typename BList<T, Size>::BNode *BList<T, Size>::GetNodeAtIndex(int index) const
     return tail_;
 }
 
+/******************************************************************************/
+/*!
+\brief
+  This function deletes a node from the list.
+\par node to delete.
+*/
+/******************************************************************************/
 template <typename T, int Size>
 void BList<T, Size>::FreeNode(BNode *node)
 {
@@ -384,6 +532,13 @@ void BList<T, Size>::FreeNode(BNode *node)
   --stats_.NodeCount;
 }
 
+/******************************************************************************/
+/*!
+\brief
+  This function updates the count of a node.
+\par node to update.
+*/
+/******************************************************************************/
 template <typename T, int Size>
 void BList<T, Size>::IncrementNodeCount(BNode *node)
 {
@@ -392,10 +547,19 @@ void BList<T, Size>::IncrementNodeCount(BNode *node)
     node->count = Size;
 }
 
+/******************************************************************************/
+/*!
+\brief
+  This function inserts a value into a node, and performs splitting if needed.
+\par node to insert value.
+\par index to insert at.
+\par value to insert.
+*/
+/******************************************************************************/
 template <typename T, int Size>
 void BList<T, Size>::SplitNode(BNode *node, int index, const T &value)
 {
-  auto new_node = CreateNode(nullptr);
+  auto new_node = CreateNode();
   new_node->prev = node;
   if (node->next)
   {
@@ -462,6 +626,13 @@ void BList<T, Size>::SplitNode(BNode *node, int index, const T &value)
   ++stats_.NodeCount;
 }
 
+/******************************************************************************/
+/*!
+\brief
+  This function retuns the value of an element at the given \p index.
+\par index of the element.
+*/
+/******************************************************************************/
 template <typename T, int Size>
 T &BList<T, Size>::GetValueAtIndex(int index) const
 {
@@ -480,6 +651,15 @@ T &BList<T, Size>::GetValueAtIndex(int index) const
   return current->values[i];
 }
 
+/******************************************************************************/
+/*!
+\brief
+  This function inserts a value at the given \p index in a node.
+\par node to insert value at.
+\par index of the element.
+\par value of the element.
+*/
+/******************************************************************************/
 template <typename T, int Size>
 void BList<T, Size>::InsertValueAtIndex(BNode *node, int index, const T &value)
 {
@@ -495,6 +675,15 @@ void BList<T, Size>::InsertValueAtIndex(BNode *node, int index, const T &value)
   ++stats_.ItemCount;
 }
 
+/******************************************************************************/
+/*!
+\brief
+  This function removed a value at the given \p index in a node.
+\par node to remove value at.
+\par index of the element.
+\par value of the element.
+*/
+/******************************************************************************/
 template <typename T, int Size>
 void BList<T, Size>::RemoveValueAtIndex(BNode *node, int index)
 {
