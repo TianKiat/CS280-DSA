@@ -28,7 +28,7 @@ void Shuffle(T *array, unsigned count)
   }
 }
 
-template <typename T, unsigned Size>
+template <typename T, int Size>
 void DumpStats(const BList<T, Size>& blist)
 {
   BListStats stats = blist.GetStats();
@@ -54,7 +54,7 @@ void DumpStats(const BList<T, Size>& blist)
 }
 
 
-template <typename T, unsigned Size>
+template <typename T, int Size>
 void DumpList(const BList<T, Size>& blist, bool flat = false)
 {
   const typename BList<T, Size>::BNode *node = blist.GetHead();
@@ -66,9 +66,9 @@ void DumpList(const BList<T, Size>& blist, bool flat = false)
     if (!flat)
       std::cout << "Node " << std::setw(3) << ++count << " (" << std::setw(2) << node->count << "): ";
 
-    for (unsigned i = 0; i < node->count; i++)
+    for (auto i = 0; i < node->count; i++)
     {
-      std::cout << node->values[i] << " ";
+      std::cout << node->values[static_cast<size_t>(i)] << " ";
     }
 
     if (!flat)
@@ -78,15 +78,15 @@ void DumpList(const BList<T, Size>& blist, bool flat = false)
   std::cout << std::endl;
 }
 
-template <typename T, unsigned Size>
+template <typename T, int Size>
 void DumpListFlat(const BList<T, Size>& blist)
 {
   const typename BList<T, Size>::BNode *node = blist.GetHead();
   while (node)
   {
-    for (unsigned i = 0; i < node->count; i++)
+    for (auto i = 0; i < node->count; i++)
     {
-      std::cout << node->values[i] << " ";
+      std::cout << node->values[static_cast<size_t>(i)] << " ";
     }
     node = node->next;
   }
@@ -452,7 +452,7 @@ void test3_16()
 ///////////////////////////////////////////////////////////////////////////////////////////////////
 // subscript
 
-template <typename T, unsigned Size>
+template <typename T, int Size>
 void print_subscript(const BList<T, Size>& list)
 {
   for (unsigned i = 0; i < list.size(); i++)  
@@ -847,7 +847,7 @@ void test5_16()
 // insert/find
 void test6_16()
 {
-  std::cout << "==================== tes6_16 ====================\n";
+  std::cout << "==================== test6_16 ====================\n";
   const unsigned asize = 16;
 
   BList<int, asize> bl;
@@ -885,7 +885,7 @@ void test6_16()
 
 void test6_64()
 {
-  std::cout << "==================== test5_64 ====================\n";
+  std::cout << "==================== test6_64 ====================\n";
   const unsigned asize = 64;
 
   BList<int, asize> bl;
@@ -923,7 +923,7 @@ void test6_64()
 
 void test6_512()
 {
-  std::cout << "==================== test5_512 ====================\n";
+  std::cout << "==================== test6_512 ====================\n";
   const unsigned asize = 512;
 
   BList<int, asize> bl;
@@ -1655,10 +1655,12 @@ void testD()
 
 int main(int argc, char **argv)
 {
-   int test ;
-  std::cin>>test;
-  if (argc > 1)
-    test = std::atoi(argv[1]);
+   int test = 0;
+   (void)argc;
+   (void)argv;
+  // std::cin>>test;
+  // if (argc > 1)
+  //   test = std::atoi(argv[1]);
  
   /*int test_num = 0;
   if (argc > 1)
@@ -1693,6 +1695,54 @@ int main(int argc, char **argv)
 
   switch (test)
   {
+    case 0:
+      test1_1();
+      test1_2();
+      test1_4();
+      test1_8();
+      test1_16();
+      test2_1();
+      test2_2();
+      test2_4();
+      test2_8();
+      test2_16();
+      test3_1();
+      test3_2();
+      test3_4();
+      test3_8();
+      test3_16();
+      test4_1();
+      test4_2();
+      test4_4();
+      test4_8();
+      test4_16();
+      test5_1();
+      test5_2();
+      test5_4();
+      test5_8();
+      test5_16();
+      test6_16();
+      test6_64();
+      test6_512();
+      test7_1();
+      test7_2();
+      test7_4();
+      test7_8();
+      test8_1();
+      test8_2();
+      test8_4();
+      test8_8();
+      test9_1();
+      test9_4();
+      test10_1();
+      test10_4();
+      test11_8();
+      test12_8();
+      testA();
+      testB();
+      testC();
+      testD();
+      break;
     case 1:
       test1_1();
       test1_2();

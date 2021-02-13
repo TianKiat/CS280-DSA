@@ -1,3 +1,15 @@
+/******************************************************************************/
+/*!
+\file   BList.h
+\author Ng Tian Kiat
+\par    email: tiankiat.ng\@digipen.edu
+\par    Course: CS280
+\par    Assignment 2
+\date   12 February 2021
+\brief  
+  This file contains the declarations for the BList.
+*/
+/******************************************************************************/
 ////////////////////////////////////////////////////////////////////////////////
 #ifndef BLIST_H
 #define BLIST_H
@@ -109,7 +121,7 @@ class BList
       T values[Size]; //!< array of items in the node
 
       //!< Default constructor
-      BNode() : next(0), prev(0), count(0) {}
+      BNode() : next(nullptr), prev(nullptr), count(0) {}
     };
 
     BList();                            // default constructor
@@ -146,7 +158,15 @@ class BList
     BNode *tail_; //!< points to the last node
 
     // Other private data and methods you may need ...
-
+    BListStats stats_;
+    BNode * CreateNode(const BNode * rhs);
+    BNode * GetNodeAtIndex(int index) const;
+    void FreeNode(BNode* node);
+    void IncrementNodeCount(BNode * node);
+    void SplitNode(BNode * node, int index, const T& value);
+    T& GetValueAtIndex(int index) const;
+    void InsertValueAtIndex(BNode *node, int index, const T& value);
+    void RemoveValueAtIndex(BNode* node, int index);
 };
 
 #include "BList.cpp"
