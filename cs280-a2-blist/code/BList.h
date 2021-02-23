@@ -105,7 +105,7 @@ struct BListStats
 /*!
   The BList class
 */
-template <typename T, int Size = 1>
+template <typename T, unsigned Size = 1>
 class BList
 {
  

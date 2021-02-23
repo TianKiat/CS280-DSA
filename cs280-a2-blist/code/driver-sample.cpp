@@ -28,7 +28,7 @@ void Shuffle(T *array, unsigned count)
   }
 }
 
-template <typename T, int Size>
+template <typename T, unsigned Size>
 void DumpStats(const BList<T, Size>& blist)
 {
   BListStats stats = blist.GetStats();
@@ -54,7 +54,7 @@ void DumpStats(const BList<T, Size>& blist)
 }
 
 
-template <typename T, int Size>
+template <typename T, unsigned Size>
 void DumpList(const BList<T, Size>& blist, bool flat = false)
 {
   const typename BList<T, Size>::BNode *node = blist.GetHead();
@@ -78,7 +78,7 @@ void DumpList(const BList<T, Size>& blist, bool flat = false)
   std::cout << std::endl;
 }
 
-template <typename T, int Size>
+template <typename T, unsigned Size>
 void DumpListFlat(const BList<T, Size>& blist)
 {
   const typename BList<T, Size>::BNode *node = blist.GetHead();
@@ -452,7 +452,7 @@ void test3_16()
 ///////////////////////////////////////////////////////////////////////////////////////////////////
 // subscript
 
-template <typename T, int Size>
+template <typename T, unsigned Size>
 void print_subscript(const BList<T, Size>& list)
 {
   for (unsigned i = 0; i < list.size(); i++)  

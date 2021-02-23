@@ -20,7 +20,7 @@
 \return size of node.
 */
 /******************************************************************************/
-template <typename T, int Size>
+template <typename T, unsigned Size>
 size_t BList<T, Size>::nodesize(void)
 {
   return sizeof(BNode);
@@ -34,7 +34,7 @@ size_t BList<T, Size>::nodesize(void)
 \return The head node.
 */
 /******************************************************************************/
-template <typename T, int Size>
+template <typename T, unsigned Size>
 const typename BList<T, Size>::BNode *BList<T, Size>::GetHead() const
 {
   return head_;
@@ -46,11 +46,11 @@ const typename BList<T, Size>::BNode *BList<T, Size>::GetHead() const
   Default Constructor
 */
 /******************************************************************************/
-template <typename T, int Size>
+template <typename T, unsigned Size>
 BList<T, Size>::BList() : head_{nullptr}, tail_{nullptr}
 {
   stats_.NodeSize = nodesize();
-  stats_.ArraySize = Size;
+  stats_.ArraySize = static_cast<int>(Size);
 }
 
 /******************************************************************************/
@@ -60,7 +60,7 @@ BList<T, Size>::BList() : head_{nullptr}, tail_{nullptr}
 \par rhs the BList to copy.
 */
 /******************************************************************************/
-template <typename T, int Size>
+template <typename T, unsigned Size>
 BList<T, Size>::BList(const BList &rhs) : stats_{rhs.stats_}
 {
   auto rhs_current = rhs.GetHead();
@@ -96,7 +96,7 @@ BList<T, Size>::BList(const BList &rhs) : stats_{rhs.stats_}
   Destructor
 */
 /******************************************************************************/
-template <typename T, int Size>
+template <typename T, unsigned Size>
 BList<T, Size>::~BList()
 {
   clear();
@@ -109,7 +109,7 @@ BList<T, Size>::~BList()
 \par rhs the BList to copy.
 */
 /******************************************************************************/
-template <typename T, int Size>
+template <typename T, unsigned Size>
 BList<T, Size> &BList<T, Size>::operator=(const BList &rhs)
 {
   if (this == &rhs)
@@ -153,11 +153,11 @@ BList<T, Size> &BList<T, Size>::operator=(const BList &rhs)
 \par value to push.
 */
 /******************************************************************************/
-template <typename T, int Size>
+template <typename T, unsigned Size>
 void BList<T, Size>::push_back(const T &value)
 {
   //add to tail node if tail node has available space
-  if (tail_ && tail_->count < Size)
+  if (tail_ && tail_->count < stats_.ArraySize)
   {
     tail_->values[tail_->count] = value;
     IncrementNodeCount(tail_);
@@ -189,11 +189,11 @@ void BList<T, Size>::push_back(const T &value)
 \par value to push.
 */
 /******************************************************************************/
-template <typename T, int Size>
+template <typename T, unsigned Size>
 void BList<T, Size>::push_front(const T &value)
 {
   //add to head node if head node has available space
-  if (head_ && head_->count < Size)
+  if (head_ && head_->count < stats_.ArraySize)
   {
     for (auto i = head_->count; i > 0; --i)
       head_->values[i] = head_->values[i - 1];
@@ -228,7 +228,7 @@ void BList<T, Size>::push_front(const T &value)
 \par value to push.
 */
 /******************************************************************************/
-template <typename T, int Size>
+template <typename T, unsigned Size>
 void BList<T, Size>::insert(const T &value)
 {
   if (!head_)
@@ -242,7 +242,7 @@ void BList<T, Size>::insert(const T &value)
   // Find node to insert value in
   while (current)
   {
-    while (i < Size && current->values[i] < value)
+    while (i < stats_.ArraySize && current->values[i] < value)
       ++i;
 
     if (i < current->count)
@@ -256,17 +256,17 @@ void BList<T, Size>::insert(const T &value)
   {
     if (i == 0)
     {
-      if (current->prev && current->prev->count < Size)
+      if (current->prev && current->prev->count < stats_.ArraySize)
       {
         InsertValueAtIndex(current->prev, current->prev->count, value);
       }
-      else if (current->count < Size)
+      else if (current->count < stats_.ArraySize)
       {
         InsertValueAtIndex(current, i, value);
       }
       else if (current->prev)
       {
-        SplitNode(current->prev, Size, value);
+        SplitNode(current->prev, stats_.ArraySize, value);
       }
       else
       {
@@ -275,7 +275,7 @@ void BList<T, Size>::insert(const T &value)
     }
     else
     {
-      if (current->count < Size)
+      if (current->count < stats_.ArraySize)
       {
         InsertValueAtIndex(current, i, value);
       }
@@ -287,7 +287,7 @@ void BList<T, Size>::insert(const T &value)
   }
   else //this means we are at the tail (current = nullptr)
   {
-    if (tail_->count < Size)
+    if (tail_->count < stats_.ArraySize)
     {
       InsertValueAtIndex(tail_, tail_->count, value);
     }
@@ -305,11 +305,11 @@ void BList<T, Size>::insert(const T &value)
 \par index of the list to remove the value from.
 */
 /******************************************************************************/
-template <typename T, int Size>
+template <typename T, unsigned Size>
 void BList<T, Size>::remove(int index)
 {
   auto node = GetNodeAtIndex(index);
-  auto i = index % Size;
+  auto i = index % stats_.ArraySize;
 
   RemoveValueAtIndex(node, i);
 
@@ -324,7 +324,7 @@ void BList<T, Size>::remove(int index)
 \par value to remove.
 */
 /******************************************************************************/
-template <typename T, int Size>
+template <typename T, unsigned Size>
 void BList<T, Size>::remove_by_value(const T &value)
 {
   auto current = head_;
@@ -363,7 +363,7 @@ void BList<T, Size>::remove_by_value(const T &value)
 \return -1 if index is not found.
 */
 /******************************************************************************/
-template <typename T, int Size>
+template <typename T, unsigned Size>
 int BList<T, Size>::find(const T &value) const
 {
   BNode *current = head_;
@@ -388,7 +388,7 @@ int BList<T, Size>::find(const T &value) const
 \par index position to access.
 */
 /******************************************************************************/
-template <typename T, int Size>
+template <typename T, unsigned Size>
 T &BList<T, Size>::operator[](int index)
 {
   return GetValueAtIndex(index);
@@ -401,7 +401,7 @@ T &BList<T, Size>::operator[](int index)
 \par index position to access.
 */
 /******************************************************************************/
-template <typename T, int Size>
+template <typename T, unsigned Size>
 const T &BList<T, Size>::operator[](int index) const
 {
   return GetValueAtIndex(index);
@@ -414,7 +414,7 @@ const T &BList<T, Size>::operator[](int index) const
 \return number of items currently in the list.
 */
 /******************************************************************************/
-template <typename T, int Size>
+template <typename T, unsigned Size>
 size_t BList<T, Size>::size() const
 {
   return stats_.ItemCount;
@@ -426,7 +426,7 @@ size_t BList<T, Size>::size() const
   This function removes all items in the list.
 */
 /******************************************************************************/
-template <typename T, int Size>
+template <typename T, unsigned Size>
 void BList<T, Size>::clear()
 {
   while (stats_.ItemCount > 0)
@@ -440,7 +440,7 @@ void BList<T, Size>::clear()
 \return stats of the list the list.
 */
 /******************************************************************************/
-template <typename T, int Size>
+template <typename T, unsigned Size>
 BListStats BList<T, Size>::GetStats() const
 {
   return stats_;
@@ -454,7 +454,7 @@ BListStats BList<T, Size>::GetStats() const
 \return a pointer to the new node.
 */
 /******************************************************************************/
-template <typename T, int Size>
+template <typename T, unsigned Size>
 typename BList<T, Size>::BNode *BList<T, Size>::CreateNode(const BNode *rhs)
 {
   BNode *new_node = nullptr;
@@ -483,7 +483,7 @@ typename BList<T, Size>::BNode *BList<T, Size>::CreateNode(const BNode *rhs)
 \return pointer to the node.
 */
 /******************************************************************************/
-template <typename T, int Size>
+template <typename T, unsigned Size>
 typename BList<T, Size>::BNode *BList<T, Size>::GetNodeAtIndex(int index) const
 {
   if (index < 0 || index > stats_.ItemCount)
@@ -514,7 +514,7 @@ typename BList<T, Size>::BNode *BList<T, Size>::GetNodeAtIndex(int index) const
 \par node to delete.
 */
 /******************************************************************************/
-template <typename T, int Size>
+template <typename T, unsigned Size>
 void BList<T, Size>::FreeNode(BNode *node)
 {
   if (node->prev)
@@ -539,12 +539,12 @@ void BList<T, Size>::FreeNode(BNode *node)
 \par node to update.
 */
 /******************************************************************************/
-template <typename T, int Size>
+template <typename T, unsigned Size>
 void BList<T, Size>::IncrementNodeCount(BNode *node)
 {
   ++node->count;
-  if (node->count > Size)
-    node->count = Size;
+  if (node->count > stats_.ArraySize)
+    node->count = stats_.ArraySize;
 }
 
 /******************************************************************************/
@@ -556,7 +556,7 @@ void BList<T, Size>::IncrementNodeCount(BNode *node)
 \par value to insert.
 */
 /******************************************************************************/
-template <typename T, int Size>
+template <typename T, unsigned Size>
 void BList<T, Size>::SplitNode(BNode *node, int index, const T &value)
 {
   auto new_node = CreateNode();
@@ -568,7 +568,7 @@ void BList<T, Size>::SplitNode(BNode *node, int index, const T &value)
   }
   node->next = new_node;
 
-  if (Size == 1)
+  if (stats_.ArraySize == 1)
   {
     if (index == 0)
     {
@@ -583,11 +583,11 @@ void BList<T, Size>::SplitNode(BNode *node, int index, const T &value)
   }
   else
   {
-    auto middle = Size / 2;
+    auto middle = stats_.ArraySize / 2;
 
     //Copy upper half values to new node
     auto j = 0;
-    for (auto i = middle; i < Size; ++i)
+    for (auto i = middle; i < stats_.ArraySize; ++i)
     {
       new_node->values[j++] = node->values[i];
       IncrementNodeCount(new_node);
@@ -605,7 +605,7 @@ void BList<T, Size>::SplitNode(BNode *node, int index, const T &value)
       IncrementNodeCount(node);
     }
     // else insert it into the new node
-    else if (index == Size)
+    else if (index == stats_.ArraySize)
     {
       new_node->values[new_node->count] = value;
       IncrementNodeCount(new_node);
@@ -633,7 +633,7 @@ void BList<T, Size>::SplitNode(BNode *node, int index, const T &value)
 \par index of the element.
 */
 /******************************************************************************/
-template <typename T, int Size>
+template <typename T, unsigned Size>
 T &BList<T, Size>::GetValueAtIndex(int index) const
 {
   auto current = head_;
@@ -660,7 +660,7 @@ T &BList<T, Size>::GetValueAtIndex(int index) const
 \par value of the element.
 */
 /******************************************************************************/
-template <typename T, int Size>
+template <typename T, unsigned Size>
 void BList<T, Size>::InsertValueAtIndex(BNode *node, int index, const T &value)
 {
   auto i = node->count;
@@ -684,7 +684,7 @@ void BList<T, Size>::InsertValueAtIndex(BNode *node, int index, const T &value)
 \par value of the element.
 */
 /******************************************************************************/
-template <typename T, int Size>
+template <typename T, unsigned Size>
 void BList<T, Size>::RemoveValueAtIndex(BNode *node, int index)
 {
   for (auto i = index; i < node->count; ++i)
