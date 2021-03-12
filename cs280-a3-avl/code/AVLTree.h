@@ -21,7 +21,17 @@ class AVLTree : public BSTree<T>
     static bool ImplementedBalanceFactor(void);
 
   private:
+    using BinTree = typename BSTree<T>::BinTree;
+    using Stack = std::stack<BinTree *>;
     // private stuff
+    void InsertAVL(BinTree& tree, const T& value, Stack& visited);
+    void RemoveAVL(BinTree& tree, const T& value, Stack& visited);
+    void BalanceAVL(Stack& visited);
+    
+    void RotateLeft(BinTree& tree);
+    void RotateRight(BinTree& tree);
+    unsigned int CountTree(BinTree& tree);
+    void RecountAVL(BinTree& tree);
 };
 
 #include "AVLTree.cpp"

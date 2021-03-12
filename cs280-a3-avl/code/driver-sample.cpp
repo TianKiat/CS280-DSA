@@ -12,7 +12,7 @@
 #include "PRNG.h"
 #include "ObjectAllocator.h"
 
-#define SHOW_COUNTS
+//#define SHOW_COUNTS
 
 using std::cout;
 using std::endl;
@@ -855,7 +855,7 @@ void ExecuteTest(TestFn fn, int maxwait = 1000, int safewait = 1000)
 
 int main(int argc, char **argv)
 {
-  int test_num = 1;
+  int test_num = 0;
   //std::cin >> test_num;
   if (argc > 1)
     test_num = std::atoi(argv[1]);

@@ -11,7 +11,8 @@ BSTree<T>::BSTree(ObjectAllocator *oa, bool ShareOA)
   }
   else
   {
-    OA = new ObjectAllocator{sizeof(BinTreeNode), OAConfig{true}};
+    OAConfig config(true);
+    OA = new ObjectAllocator(sizeof(BinTreeNode), config);
     free_OA = true;
   }
   share_OA = ShareOA;
@@ -28,7 +29,8 @@ BSTree<T>::BSTree(const BSTree &rhs)
   }
   else
   {
-    OA = new ObjectAllocator{sizeof(BinTreeNode), OAConfig{true}};
+    OAConfig config(true);
+    OA = new ObjectAllocator(sizeof(BinTreeNode), config);
     free_OA = true;
     share_OA = false;
   }
@@ -76,7 +78,7 @@ BSTree<T> &BSTree<T>::operator=(const BSTree &rhs)
 template <typename T>
 const typename BSTree<T>::BinTreeNode *BSTree<T>::operator[](int index) const
 {
-  if (static_cast<unsigned>(index) > size_) 
+  if (static_cast<unsigned>(index) > size_)
     return nullptr;
   else
     return FindNodeAtIndex(root_node, index);
@@ -137,7 +139,7 @@ unsigned int BSTree<T>::size() const
 template <typename T>
 int BSTree<T>::height() const
 {
-  return height_;
+  return tree_height(root_node);
 }
 
 template <typename T>
@@ -236,7 +238,6 @@ void BSTree<T>::InsertNode(BinTree &node, const T &value, int depth)
 
       node = make_node(value);
       ++size_;
-
       return;
     }
 
@@ -263,16 +264,22 @@ void BSTree<T>::DeleteNode(BinTree &node, const T &value)
   if (node == nullptr)
     return;
   else if (value < node->data)
+  {
+    --node->count;
     DeleteNode(node->left, value);
+  }
   else if (value > node->data)
+  {
+    --node->count;
     DeleteNode(node->right, value);
+  }
   else
   {
+    --node->count;
     if (node->left == nullptr)
     {
       BinTree tmp = node;
       node = node->right;
-      --node->count;
       free_node(tmp);
       --size_;
     }
@@ -280,7 +287,6 @@ void BSTree<T>::DeleteNode(BinTree &node, const T &value)
     {
       BinTree tmp = node;
       node = node->left;
-      --node->count;
       free_node(tmp);
       --size_;
     }
@@ -316,7 +322,10 @@ typename BSTree<T>::BinTree BSTree<T>::FindNodeAtIndex(BinTree tree, unsigned in
     return nullptr;
   else
   {
-    const unsigned int left_count = tree->left->count;
+    unsigned int left_count = 0;
+    if (tree->left)
+      left_count = tree->left->count;
+    
     if (left_count > index)
       return FindNodeAtIndex(tree->left, index);
     else if (left_count < index)
