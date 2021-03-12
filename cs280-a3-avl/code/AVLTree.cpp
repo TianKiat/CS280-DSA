@@ -11,7 +11,6 @@ void AVLTree<T>::insert(const T &value)
 {
   Stack visited_nodes;
   InsertAVL(BSTree<T>::get_root(), value, visited_nodes);
-  RecountAVL(BSTree<T>::get_root());
 }
 
 template <typename T>
@@ -19,7 +18,6 @@ void AVLTree<T>::remove(const T &value)
 {
   Stack visited_nodes;
   RemoveAVL(BSTree<T>::get_root(), value, visited_nodes);
-  RecountAVL(BSTree<T>::get_root());
 }
 
 template <typename T>
@@ -40,11 +38,13 @@ void AVLTree<T>::InsertAVL(BinTree &tree, const T &value, Stack &visited)
   else if (value < tree->data)
   {
     visited.push(&tree);
+    ++tree->count;
     InsertAVL(tree->left, value, visited);
   }
   else if (value > tree->data)
   {
     visited.push(&tree);
+    ++tree->count;
     InsertAVL(tree->right, value, visited);
   }
 }
@@ -57,11 +57,13 @@ void AVLTree<T>::RemoveAVL(BinTree &tree, const T &value, Stack &visited)
   else if (value < tree->data)
   {
     visited.push(&tree);
+    --tree->count;
     RemoveAVL(tree->left, value, visited);
   }
   else if (value > tree->data)
   {
     visited.push(&tree);
+    --tree->count;
     RemoveAVL(tree->right, value, visited);
   }
   else
@@ -110,6 +112,7 @@ void AVLTree<T>::BalanceAVL(Stack &visited)
         if (BSTree<T>::tree_height((*node)->right->left) > BSTree<T>::tree_height((*node)->right->right))
           RotateRight((*node)->right);
         RotateLeft((*node));
+        RecountAVL(*node);
       }
     }
 
@@ -120,6 +123,7 @@ void AVLTree<T>::BalanceAVL(Stack &visited)
         if (BSTree<T>::tree_height((*node)->left->left) < BSTree<T>::tree_height((*node)->left->right))
           RotateLeft((*node)->left);
         RotateRight((*node));
+        RecountAVL(*node);
       }
     }
   }
