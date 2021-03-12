@@ -1,11 +1,38 @@
+/******************************************************************************/
+/*!
+\file   AVLTree.cpp
+\author Ng Tian Kiat
+\par    email: tiankiat.ng\@digipen.edu
+\par    Course: CS280
+\par    Assignment 3
+\date   12 March 2021
+\brief  
+  This file contains the implmentation for the BSTree.
+*/
+/******************************************************************************/
 #include "AVLTree.h"
 
+/******************************************************************************/
+/*!
+\brief
+  This is the constructor for a AVLTree.
+\param oa, the object allocator(OA) to use.
+\param ShareOA, this boolean decides whether this AVLTree will share it's OA.
+*/
+/******************************************************************************/
 template <typename T>
 AVLTree<T>::AVLTree(ObjectAllocator *OA, bool ShareOA)
     : BSTree<T>{OA, ShareOA}
 {
 }
 
+/******************************************************************************/
+/*!
+\brief
+  This function inserts a value into the AVLTree.
+\param value, the data to insert.
+*/
+/******************************************************************************/
 template <typename T>
 void AVLTree<T>::insert(const T &value)
 {
@@ -13,6 +40,13 @@ void AVLTree<T>::insert(const T &value)
   InsertAVL(BSTree<T>::get_root(), value, visited_nodes);
 }
 
+/******************************************************************************/
+/*!
+\brief
+  This function removes a value from the AVLTree.
+\param value, the data to remove.
+*/
+/******************************************************************************/
 template <typename T>
 void AVLTree<T>::remove(const T &value)
 {
@@ -20,12 +54,28 @@ void AVLTree<T>::remove(const T &value)
   RemoveAVL(BSTree<T>::get_root(), value, visited_nodes);
 }
 
+/******************************************************************************/
+/*!
+\brief
+  This function lets the client know if we are doing efficient balancing.
+\return true if implemented else false.
+*/
+/******************************************************************************/
 template <typename T>
 bool AVLTree<T>::ImplementedBalanceFactor(void)
 {
   return false;
 }
 
+/******************************************************************************/
+/*!
+\brief
+  This function recursively inserts a value into the AVLTree.
+\param tree, current node.
+\param value, the data to insert.
+\param visited, visited nodes.
+*/
+/******************************************************************************/
 template <typename T>
 void AVLTree<T>::InsertAVL(BinTree &tree, const T &value, Stack &visited)
 {
@@ -49,6 +99,15 @@ void AVLTree<T>::InsertAVL(BinTree &tree, const T &value, Stack &visited)
   }
 }
 
+/******************************************************************************/
+/*!
+\brief
+  This function recursively removes a value from the AVLTree.
+\param tree, current node.
+\param value, the data to remove.
+\param visited, visited nodes.
+*/
+/******************************************************************************/
 template <typename T>
 void AVLTree<T>::RemoveAVL(BinTree &tree, const T &value, Stack &visited)
 {
@@ -94,6 +153,13 @@ void AVLTree<T>::RemoveAVL(BinTree &tree, const T &value, Stack &visited)
   }
 }
 
+/******************************************************************************/
+/*!
+\brief
+  This function balances the AVLTree along a given path.
+\param visited, visited nodes aka path.
+*/
+/******************************************************************************/
 template <typename T>
 void AVLTree<T>::BalanceAVL(Stack &visited)
 {
@@ -131,6 +197,13 @@ void AVLTree<T>::BalanceAVL(Stack &visited)
   }
 }
 
+/******************************************************************************/
+/*!
+\brief
+  This function performs a simple left rotation on a given tree.
+\param tree, the pivot node.
+*/
+/******************************************************************************/
 template <typename T>
 void AVLTree<T>::RotateLeft(BinTree &tree)
 {
@@ -140,6 +213,13 @@ void AVLTree<T>::RotateLeft(BinTree &tree)
   tree->left = temp;
 }
 
+/******************************************************************************/
+/*!
+\brief
+  This function performs a simple right rotation on a given tree.
+\param tree, the pivot node.
+*/
+/******************************************************************************/
 template <typename T>
 void AVLTree<T>::RotateRight(BinTree &tree)
 {
@@ -149,6 +229,13 @@ void AVLTree<T>::RotateRight(BinTree &tree)
   tree->right = temp;
 }
 
+/******************************************************************************/
+/*!
+\brief
+  This function recursively counts the number of nodes in the subtree.
+\param tree, the parent node.
+*/
+/******************************************************************************/
 template <typename T>
 unsigned int AVLTree<T>::CountTree(BinTree &tree)
 {
@@ -158,6 +245,14 @@ unsigned int AVLTree<T>::CountTree(BinTree &tree)
   return 1 + CountTree(tree->left) + CountTree(tree->right);
 }
 
+/******************************************************************************/
+/*!
+\brief
+  This function recursively counts the number of nodes in the subtree for every
+  subtree.
+\param tree, the parent node.
+*/
+/******************************************************************************/
 template <typename T>
 void AVLTree<T>::RecountAVL(BinTree &tree)
 {

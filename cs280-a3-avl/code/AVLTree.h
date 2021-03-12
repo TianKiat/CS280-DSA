@@ -1,3 +1,15 @@
+/******************************************************************************/
+/*!
+\file   AVLTree.h
+\author Ng Tian Kiat
+\par    email: tiankiat.ng\@digipen.edu
+\par    Course: CS280
+\par    Assignment 3
+\date   12 March 2021
+\brief  
+  This file contains the declarations for the AVLTree.
+*/
+/******************************************************************************/
 //---------------------------------------------------------------------------
 #ifndef AVLTREE_H
 #define AVLTREE_H
