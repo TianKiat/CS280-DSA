@@ -68,6 +68,7 @@ void AVLTree<T>::RemoveAVL(BinTree &tree, const T &value, Stack &visited)
   }
   else
   {
+    --tree->count;
     if (tree->left == nullptr)
     {
       AVLTree<T>::BinTree temp = tree;
@@ -100,11 +101,12 @@ void AVLTree<T>::BalanceAVL(Stack &visited)
   {
     BinTree *node = visited.top();
     visited.pop();
-
-    if (std::abs(BSTree<T>::tree_height((*node)->left) - BSTree<T>::tree_height((*node)->right)) < 2)
+    int height_left = BSTree<T>::tree_height((*node)->left);
+    int height_right = BSTree<T>::tree_height((*node)->right);
+    if (std::abs(height_left - height_right) < 2)
       continue;
 
-    if(BSTree<T>::tree_height((*node)->right) > BSTree<T>::tree_height((*node)->left))
+    if (height_right > height_left)
     {
       if ((*node)->right)
       {
@@ -116,7 +118,7 @@ void AVLTree<T>::BalanceAVL(Stack &visited)
       }
     }
 
-    if(BSTree<T>::tree_height((*node)->right) < BSTree<T>::tree_height((*node)->left))
+    if (height_right < height_left)
     {
       if ((*node)->left)
       {
@@ -143,7 +145,7 @@ void AVLTree<T>::RotateRight(BinTree &tree)
 {
   BinTree temp = tree;
   tree = tree->left;
-  temp->left = tree->right;       
+  temp->left = tree->right;
   tree->right = temp;
 }
 
@@ -152,7 +154,7 @@ unsigned int AVLTree<T>::CountTree(BinTree &tree)
 {
   if (tree == nullptr)
     return 0;
-  
+
   return 1 + CountTree(tree->left) + CountTree(tree->right);
 }
 
