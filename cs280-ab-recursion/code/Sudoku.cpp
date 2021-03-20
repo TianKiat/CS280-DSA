@@ -108,69 +108,58 @@ Sudoku::SudokuStats Sudoku::GetStats() const
 /******************************************************************************/
 bool Sudoku::place_value(unsigned x, unsigned y)
 {
-  auto index = static_cast<unsigned>(x + y * length);
+  if (y == length)
+    return true;
+  unsigned index = static_cast<unsigned>(x + length * y);
 
-  if (board[index] == EMPTY_CHAR)
+  if (board[index] != EMPTY_CHAR)
   {
-    char val = (symbol_t == SYM_NUMBER) ? '1' : 'A';
-    for (size_t i = 0; i < length; ++i)
+    if (x == length - 1)
     {
-      board[index] = val;
-      ++stats.moves;
-      ++stats.placed;
+      if (place_value(0, y + 1))
+        return true;
+    }
+    else
+    {
+      if (place_value(x + 1, y))
+        return true;
+    }
+    return false;
+  }
 
-      cb(*this, board, MessageType::MSG_PLACING, stats.moves, stats.basesize, index, val);
+  char val = symbol_t == SymbolType::SYM_NUMBER ? '1' : 'A';
 
-      if (CheckValidMove(x, y, val))
+  for (size_t i = 0; i < length; ++i)
+  {
+    if (cb(*this, board, MessageType::MSG_ABORT_CHECK, stats.moves, stats.basesize, index, val))
+      return false;
+
+    board[index] = val;
+    ++stats.moves;
+    ++stats.placed;
+    cb(*this, board, MessageType::MSG_PLACING, stats.moves, stats.basesize, index, val);
+    if (CheckValidMove(x, y, val))
+    {
+      if (x == length - 1)
       {
-        if (index == length * length - 1)
+        if (place_value(0, y + 1))
           return true;
-        else
-        {
-          auto next_x = x + 1;
-          auto next_y = y;
-
-          if (next_x > length - 1)
-          {
-            next_x = 0;
-            ++next_y;
-          }
-
-          if (place_value(next_x, next_y))
-            return true;
-        }
       }
       else
       {
-        board[index] = EMPTY_CHAR;
-        --stats.placed;
-        cb(*this, board, MessageType::MSG_REMOVING, stats.moves, stats.basesize, index, val);
+        if (place_value(x + 1, y))
+          return true;
       }
 
-      ++val;
+      board[index] = EMPTY_CHAR;
+      ++stats.backtracks;
+      cb(*this, board, MessageType::MSG_REMOVING, stats.moves, stats.basesize, index, val);
     }
 
     board[index] = EMPTY_CHAR;
-    ++stats.backtracks;
     --stats.placed;
     cb(*this, board, MessageType::MSG_REMOVING, stats.moves, stats.basesize, index, val);
-  }
-  else
-  {
-    if (index == length * length - 1)
-      return true;
-
-    auto next_x = x + 1;
-    auto next_y = y;
-
-    if (next_x > length - 1)
-    {
-      next_x = 0;
-      ++next_y;
-    }
-
-    if (place_value(next_x, next_y))
-      return true;
+    ++val;
   }
 
   return false;
