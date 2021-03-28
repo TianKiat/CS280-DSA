@@ -1,3 +1,15 @@
+/******************************************************************************/
+/*!
+\file   ALGraph.h
+\author Ng Tian Kiat
+\par    email: tiankiat.ng\@digipen.edu
+\par    Course: CS280
+\par    Assignment 4
+\date   28 March 2021
+\brief  
+  This file contains the declarations for the ALGraph.
+*/
+/******************************************************************************/
 //---------------------------------------------------------------------------
 #ifndef ALGRAPH_H
 #define ALGRAPH_H
