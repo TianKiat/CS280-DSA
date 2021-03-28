@@ -206,6 +206,17 @@ void TestDijkstra0(unsigned start, bool dump_alist = true, bool dump_paths = tru
     catch (...)
     {
         std::cout << "***** Unknown exception caught in " << fn << " *****\n";
+        std::exception_ptr p = std::current_exception();
+        try
+        {
+            if (p)
+            std::rethrow_exception(p);
+        }
+        catch(const std::exception& e)
+        {
+            std::cerr << e.what() << '\n';
+        }
+        
     }
 
 }

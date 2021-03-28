@@ -1,10 +1,13 @@
 #include "ALGraph.h"
 #include <algorithm>
 #include <queue>
-ALGraph::ALGraph(unsigned size) : size_{size}
+#include <iostream>
+
+ALGraph::ALGraph(unsigned size)
 {
-  for (unsigned i = 0; i < size_; ++i)
-    adjlist_.push_back(std::vector<AdjInfo>());
+  list_.reserve(size);
+  for (size_t i = 0; i < size; ++i)
+    list_.push_back(ALIST::value_type());
 }
 ALGraph::~ALGraph(void)
 {
@@ -12,9 +15,27 @@ ALGraph::~ALGraph(void)
 
 void ALGraph::AddDEdge(unsigned source, unsigned destination, unsigned weight)
 {
-  auto id = source - 1;
-  adjlist_[id].push_back(AdjInfo{destination, weight, 0});
-  std::sort(adjlist_[id].begin(), adjlist_[id].end());
+  unsigned id = source - 1;
+  AdjacencyInfo info{destination, weight};
+  auto& adj_list = list_.at(id);
+
+  for (auto i = adj_list.begin(); i != adj_list.end(); ++i)
+  {
+    if (info.weight < i->weight)
+    {
+      adj_list.insert(i, info);
+      return;
+    }
+    else if (info.weight == i->weight)
+    {
+      if (info.id < i->id)
+      {
+        adj_list.insert(i, info);
+        return;
+      }
+    }
+  }
+  adj_list.push_back(info);
 }
 
 void ALGraph::AddUEdge(unsigned node1, unsigned node2, unsigned weight)
@@ -25,90 +46,90 @@ void ALGraph::AddUEdge(unsigned node1, unsigned node2, unsigned weight)
 
 std::vector<DijkstraInfo> ALGraph::Dijkstra(unsigned start_node) const
 {
-  std::vector<GNode> queue;
-  for (unsigned i = 0; i < adjlist_.size(); ++i)
+  std::priority_queue<GNode*> pq;
+  std::vector<DijkstraInfo> result;
+  std::vector<GNode> nodes;
+  result.reserve(list_.size());
+  nodes.reserve(list_.size());
+
+  //initialize all nodes in graph
+  for (unsigned i = 0; i < list_.size(); ++i)
   {
-    unsigned id = i +1;
-    unsigned cost = 0;
-    if (id != start_node)
-      cost = INFINITY_;
-    queue.push_back(GNode{id, id, cost, false});
-  }
-  std::make_heap(queue.begin(), queue.end());
-
-  std::vector<GNode> completed_nodes(size_);
-
-  while (!queue.empty())
-  {
-    std::pop_heap(queue.begin(), queue.end());
-    auto node = queue.back();
-    queue.pop_back();
-    
-    node.evaluated = true;
-    completed_nodes[node.id - 1] = node;
-
-    for (auto adj_node : adjlist_[node.id - 1])
+    GNode node;
+    if (i != start_node)
     {
-      auto adj_node_from_queue = std::find(queue.begin(), queue.end(), adj_node.adj_node_id);
-      auto new_cost = node.cost + adj_node.cost;
-      if (!adj_node_from_queue->evaluated && new_cost < adj_node_from_queue->cost)
+      node.evaluated = false;
+      node.info.cost = INFINITY_;
+    }
+    else
+    {
+      node.evaluated = true;
+      node.info.cost = 0;
+      node.info.path.push_back(start_node);
+    }
+
+    node.id = i;
+    nodes.push_back(node);
+  }
+
+  auto GetAdjList = [=](unsigned i) {return list_.at(i - 1);};
+
+  const auto& adj_nodes = GetAdjList(start_node);
+
+  //push all nodes into queue with updated edge costs.
+  for (unsigned i = 0; i < adj_nodes.size(); ++i)
+  {
+    const auto& info = adj_nodes.at(i);
+    auto& node = nodes[info.id - 1];
+    node.info.cost = info.weight;
+
+    pq.push(&node);
+    node.info.path.push_back(start_node);
+  }
+
+  while (!pq.empty())
+  {
+    auto& v = *(pq.top());
+    pq.pop();
+
+    v.evaluated = true;
+    v.info.path.push_back(v.id);
+
+    const auto& adj_list = GetAdjList(v.id);
+
+    for (unsigned i = 0; i < adj_list.size(); ++i)
+    {
+      const auto& info = adj_list.at(i);
+      auto& u = nodes[info.id - 1];
+
+      unsigned new_cost = info.weight + v.info.cost;
+
+      if (new_cost < u.info.cost)
       {
-        adj_node_from_queue->cost = new_cost;
-        adj_node_from_queue->prev = node.id;
-        std::make_heap(queue.begin(), queue.end());
+        u.info.cost = new_cost;
+        u.info.path = v.info.path;
+
+        if (!v.evaluated)
+          u.info.path.push_back(v.id);
+        std::cout << v.id << ", " << u.id << " size: "; 
+        std::cout << pq.size() << "\n";
+        pq.push(&u);
       }
     }
   }
 
-  std::vector<DijkstraInfo> info(size_);
-  for (auto node : completed_nodes)
+  for (unsigned i = 0; i < nodes.size(); ++i)
   {
-    auto prev_node = node;
-    auto prev_id = prev_node.id;
-
-    std::vector<unsigned> path;
-    path.push_back(prev_id);
-
-    while (prev_id != start_node)
-    {
-      prev_node = completed_nodes[prev_id - 1];
-      prev_id = prev_node.prev;
-      path.push_back(prev_id);
-    }
-    std::reverse(path.begin(), path.end());
-    //info[node.id - 1] = DijkstraInfo{node.cost, path};
+    result.push_back(nodes[i].info);
   }
-
-  return info;
+  return result;
 }
 
 ALIST ALGraph::GetAList(void) const{
-    // copy into driver communicable structures
-    ALIST alist;
-    for (auto ilist: adjlist_) {
-        alist.push_back(std::vector<AdjacencyInfo>());
-        for (auto item: ilist)
-            alist.back().push_back(AdjacencyInfo{item.adj_node_id, item.weight});
-    }
-    return alist;
+    return list_;
 }
 
 bool ALGraph::GNode::operator<(const GNode &rhs) const
 {
-  return cost > rhs.cost;
-}
-
-bool ALGraph::GNode::operator==(const unsigned _id) const
-{
-  return id > _id;
-}
-
-bool ALGraph::AdjInfo::operator<(const AdjInfo &rhs) const
-{
-  return weight < rhs.weight;
-}
-
-bool ALGraph::AdjInfo::operator>(const AdjInfo &rhs) const
-{
-  return weight > rhs.weight;
+  return info.cost < rhs.info.cost;
 }
