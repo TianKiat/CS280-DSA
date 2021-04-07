@@ -27,9 +27,9 @@ ChHashTable<T>::ChHashTable(const HTConfig &Config, ObjectAllocator *allocator)
 {
   head = new ChHTHeadNode[config.InitialTableSize_];
 
-  stats.TableSize_ = config.InitialTableSize_;
   stats.HashFunc_ = config.HashFunc_;
   stats.Allocator_ = allocator;
+  stats.TableSize_ = config.InitialTableSize_;
 }
 
 /******************************************************************************/
@@ -77,7 +77,7 @@ void ChHashTable<T>::insert(const char *Key, const T &Data)
 
       if (strncmp(Key, list->Key, MAX_KEYLEN) == 0)
         throw(HashTableException(HashTableException::E_DUPLICATE,
-                                 "Item being inserted is a duplicate"));
+                                 "Trying to insert duplicate item!"));
 
       list = list->Next;
     }
@@ -88,8 +88,8 @@ void ChHashTable<T>::insert(const char *Key, const T &Data)
     new_node->Next = table_head->Nodes;
     table_head->Nodes = new_node;
 
-    ++stats.Count_;
     ++table_head->Count;
+    ++stats.Count_;
   }
   catch (HashTableException &e)
   {
@@ -160,7 +160,7 @@ const T &ChHashTable<T>::find(const char *Key) const
   }
 
   throw(HashTableException(HashTableException::E_ITEM_NOT_FOUND,
-                           "Item requested to be found does not exist"));
+                           "Key not found!"));
 }
 
 /******************************************************************************/
@@ -230,8 +230,8 @@ typename ChHashTable<T>::ChHTNode *ChHashTable<T>::make_node(const T &data)
   {
     if (oa)
     {
-      ChHTNode *mem = reinterpret_cast<ChHTNode *>(oa->Allocate());
-      ChHTNode *node = new (mem) ChHTNode(data);
+      ChHTNode *alloc = reinterpret_cast<ChHTNode *>(oa->Allocate());
+      ChHTNode *node = new (alloc) ChHTNode(data);
       return node;
     }
 
@@ -241,7 +241,7 @@ typename ChHashTable<T>::ChHTNode *ChHashTable<T>::make_node(const T &data)
   catch (std::bad_alloc &e)
   {
     throw(HashTableException(HashTableException::E_NO_MEMORY,
-                             "No memory is available"));
+                             "Unable to allocate memory!"));
   }
 }
 
@@ -276,11 +276,11 @@ void ChHashTable<T>::grow_table()
 {
   try
   {
+    unsigned old_table_size = stats.TableSize_;
     double factor = std::ceil(stats.TableSize_ * config.GrowthFactor_);
     unsigned new_table_size = GetClosestPrime(static_cast<unsigned>(factor));
-
-    unsigned old_table_size = stats.TableSize_;
     stats.TableSize_ = new_table_size;
+
 
     ChHTHeadNode *new_table = new ChHTHeadNode[stats.TableSize_];
     for (unsigned i = 0; i < old_table_size; ++i)
@@ -289,10 +289,9 @@ void ChHashTable<T>::grow_table()
       ChHTNode *list = head[i].Nodes;
       while (list)
       {
+        ++stats.Probes_;
         ChHTNode *temp = list->Next;
         unsigned index = stats.HashFunc_(list->Key, stats.TableSize_);
-
-        ++stats.Probes_;
 
         if (new_table[index].Nodes)
         {
@@ -313,13 +312,13 @@ void ChHashTable<T>::grow_table()
         list = temp;
       }
     }
+    delete[] head;
     head = new_table;
     ++stats.Expansions_;
-    delete[] head;
   }
-  catch (std::bad_alloc &ba)
+  catch (std::bad_alloc &e)
   {
     throw(HashTableException(HashTableException::E_NO_MEMORY,
-                             "No memory is available"));
+                             "Unable to allocate memory!"));
   }
 }
