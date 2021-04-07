@@ -1,3 +1,15 @@
+/******************************************************************************/
+/*!
+\file   ChHashTable.h
+\author Ng Tian Kiat
+\par    email: tiankiat.ng\@digipen.edu
+\par    Course: CS280
+\par    Assignment 4
+\date   28 March 2021
+\brief  
+  This file contains the declarations for the ChHashTable.
+*/
+/******************************************************************************/
 //---------------------------------------------------------------------------
 #ifndef CHHASHTABLEH
 #define CHHASHTABLEH
@@ -136,6 +148,7 @@ public:
   const ChHTHeadNode *GetTable() const;
 
 private:
+  // Private fields and methods...
   ChHTNode *make_node(const T &data);
   void remove_node(ChHTNode *&node);
   void grow_table();
@@ -146,7 +159,6 @@ private:
   ChHTHeadNode *head;
 
   mutable HTStats stats;
-  // Private fields and methods...
 };
 
 #include "ChHashTable.cpp"

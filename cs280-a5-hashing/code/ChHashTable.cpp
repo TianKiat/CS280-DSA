@@ -1,6 +1,26 @@
+/******************************************************************************/
+/*!
+\file   ChHashTable.cpp
+\author Ng Tian Kiat
+\par    email: tiankiat.ng\@digipen.edu
+\par    Course: CS280
+\par    Assignment 4
+\date   28 March 2021
+\brief  
+  This file contains the implementations for the ChHashTable.
+*/
+/******************************************************************************/
 #include "ChHashTable.h"
 #include <cmath>
 
+/******************************************************************************/
+/*!
+\brief
+  This is the constructor for a ChHashTable.
+\param Config, hash table configuration settings.
+\param allocator, client object allocator.
+*/
+/******************************************************************************/
 template <typename T>
 ChHashTable<T>::ChHashTable(const HTConfig &Config, ObjectAllocator *allocator)
     : oa{allocator}, config{Config}, stats{}
@@ -12,6 +32,12 @@ ChHashTable<T>::ChHashTable(const HTConfig &Config, ObjectAllocator *allocator)
   stats.Allocator_ = allocator;
 }
 
+/******************************************************************************/
+/*!
+\brief
+  This is the destructor for a ChHashTable.
+*/
+/******************************************************************************/
 template <typename T>
 ChHashTable<T>::~ChHashTable()
 {
@@ -19,12 +45,23 @@ ChHashTable<T>::~ChHashTable()
   delete[] head;
 }
 
+/******************************************************************************/
+/*!
+\brief
+  This function inserts a data into the hash table with a key.
+\param Key, the key for the data.
+\param Data, the data to insert.
+*/
+/******************************************************************************/
 template <typename T>
 void ChHashTable<T>::insert(const char *Key, const T &Data)
 {
   try
   {
-    if (((stats.Count_ + 1) / static_cast<double>(stats.TableSize_)) > config.MaxLoadFactor_)
+    const auto current_load_factor =
+        ((stats.Count_ + 1) / static_cast<double>(stats.TableSize_));
+
+    if (current_load_factor > config.MaxLoadFactor_)
       grow_table();
 
     unsigned index = config.HashFunc_(Key, stats.TableSize_);
@@ -39,7 +76,8 @@ void ChHashTable<T>::insert(const char *Key, const T &Data)
       ++stats.Probes_;
 
       if (strncmp(Key, list->Key, MAX_KEYLEN) == 0)
-        throw(HashTableException(HashTableException::E_DUPLICATE, "Item being inserted is a duplicate"));
+        throw(HashTableException(HashTableException::E_DUPLICATE,
+                                 "Item being inserted is a duplicate"));
 
       list = list->Next;
     }
@@ -59,6 +97,13 @@ void ChHashTable<T>::insert(const char *Key, const T &Data)
   }
 }
 
+/******************************************************************************/
+/*!
+\brief
+  This function removes the data from the hash table with a given key.
+\param Key, the key for the data to remove.
+*/
+/******************************************************************************/
 template <typename T>
 void ChHashTable<T>::remove(const char *Key)
 {
@@ -78,10 +123,10 @@ void ChHashTable<T>::remove(const char *Key)
       else
         table_head->Nodes = current->Next;
 
+      remove_node(current);
+
       --table_head->Count;
       --stats.Count_;
-
-      remove_node(current);
       return;
     }
 
@@ -90,6 +135,14 @@ void ChHashTable<T>::remove(const char *Key)
   }
 }
 
+/******************************************************************************/
+/*!
+\brief
+  This function finds a data from the hash table with a key.
+\returns the data if key is found, else a
+  HashTableException::E_ITEM_NOT_FOUND will be thrown.
+*/
+/******************************************************************************/
 template <typename T>
 const T &ChHashTable<T>::find(const char *Key) const
 {
@@ -110,6 +163,12 @@ const T &ChHashTable<T>::find(const char *Key) const
                            "Item requested to be found does not exist"));
 }
 
+/******************************************************************************/
+/*!
+\brief
+  This function clears the hash table.
+*/
+/******************************************************************************/
 template <typename T>
 void ChHashTable<T>::clear()
 {
@@ -130,18 +189,40 @@ void ChHashTable<T>::clear()
   stats.Count_ = 0;
 }
 
+/******************************************************************************/
+/*!
+\brief
+  This function returns the Hash table's statistics.
+\returns HTStats, the stats of this Hash table.
+*/
+/******************************************************************************/
 template <typename T>
 HTStats ChHashTable<T>::GetStats() const
 {
   return stats;
 }
 
+/******************************************************************************/
+/*!
+\brief
+  This function returns the table node.
+\returns ChHTHeadNode*, the head node of the table.
+*/
+/******************************************************************************/
 template <typename T>
 const typename ChHashTable<T>::ChHTHeadNode *ChHashTable<T>::GetTable() const
 {
   return head;
 }
 
+/******************************************************************************/
+/*!
+\brief
+  This function creates a new node with given data.
+\param data, the data of the node.
+\return ChHTNode*, a pointer to the new node.
+*/
+/******************************************************************************/
 template <typename T>
 typename ChHashTable<T>::ChHTNode *ChHashTable<T>::make_node(const T &data)
 {
@@ -164,6 +245,13 @@ typename ChHashTable<T>::ChHTNode *ChHashTable<T>::make_node(const T &data)
   }
 }
 
+/******************************************************************************/
+/*!
+\brief
+  This function frees a given node.
+\param ChHTNode*, the node to free.
+*/
+/******************************************************************************/
 template <typename T>
 void ChHashTable<T>::remove_node(ChHTNode *&node)
 {
@@ -177,15 +265,21 @@ void ChHashTable<T>::remove_node(ChHTNode *&node)
     delete node;
 }
 
+/******************************************************************************/
+/*!
+\brief
+  This function grows the size of the table.
+*/
+/******************************************************************************/
 template <typename T>
 void ChHashTable<T>::grow_table()
 {
   try
   {
-    unsigned old_table_size = stats.TableSize_;
-
     double factor = std::ceil(stats.TableSize_ * config.GrowthFactor_);
     unsigned new_table_size = GetClosestPrime(static_cast<unsigned>(factor));
+
+    unsigned old_table_size = stats.TableSize_;
     stats.TableSize_ = new_table_size;
 
     ChHTHeadNode *new_table = new ChHTHeadNode[stats.TableSize_];
@@ -195,9 +289,10 @@ void ChHashTable<T>::grow_table()
       ChHTNode *list = head[i].Nodes;
       while (list)
       {
-        ++stats.Probes_;
         ChHTNode *temp = list->Next;
         unsigned index = stats.HashFunc_(list->Key, stats.TableSize_);
+
+        ++stats.Probes_;
 
         if (new_table[index].Nodes)
         {
@@ -212,15 +307,15 @@ void ChHashTable<T>::grow_table()
             new_list = new_list->Next;
           }
         }
-          list->Next = new_table[index].Nodes;
+        list->Next = new_table[index].Nodes;
         new_table[index].Nodes = list;
 
         list = temp;
       }
     }
-    delete[] head;
     head = new_table;
     ++stats.Expansions_;
+    delete[] head;
   }
   catch (std::bad_alloc &ba)
   {
