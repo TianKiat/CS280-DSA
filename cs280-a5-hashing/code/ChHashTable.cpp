@@ -191,19 +191,32 @@ void ChHashTable<T>::grow_table()
     ChHTHeadNode *new_table = new ChHTHeadNode[stats.TableSize_];
     for (unsigned i = 0; i < old_table_size; ++i)
     {
+
       ChHTNode *list = head[i].Nodes;
       while (list)
       {
+        ++stats.Probes_;
         ChHTNode *temp = list->Next;
         unsigned index = stats.HashFunc_(list->Key, stats.TableSize_);
 
-        list->Next = new_table[index].Nodes;
+        if (new_table[index].Nodes)
+        {
+          ChHTNode *new_list = new_table[index].Nodes;
+
+          while (new_list)
+          {
+            ++stats.Probes_;
+
+            if (strncmp(new_list->Key, list->Key, MAX_KEYLEN) == 0)
+              break;
+            new_list = new_list->Next;
+          }
+        }
+          list->Next = new_table[index].Nodes;
         new_table[index].Nodes = list;
 
         list = temp;
-        ++stats.Probes_;
       }
-      ++stats.Probes_;
     }
     delete[] head;
     head = new_table;
